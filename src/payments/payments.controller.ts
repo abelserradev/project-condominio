@@ -13,15 +13,20 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CsrfGuard } from '../common/guards/csrf.guard';
 import { PaymentsService } from './payments.service';
 import { Types } from 'mongoose';
+import { validateEstado, sanitizeBanco, sanitizeComprobante } from '../common/utils/security.util';
+import { validateFileMimeType, validateFileSize } from '../common/utils/file-validation.util';
 
 @Controller('payments')
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
   @Post()
+  @UseGuards(CsrfGuard)
   @UseInterceptors(FileInterceptor('comprobante', { limits: { fileSize: 5 * 1024 * 1024 } }))
   async create(
     @UploadedFile() file: Express.Multer.File,
@@ -37,58 +42,69 @@ export class PaymentsController {
     @Body('recibosIds') recibosIdsRaw?: string,
   ) {
     if (!file) throw new BadRequestException('Se requiere el comprobante');
-    const MAX_SIZE_MB = 5;
-    const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
-    if (file.size > MAX_SIZE_BYTES) {
-      throw new BadRequestException(`El archivo excede el tamaño máximo de ${MAX_SIZE_MB}MB`);
-    }
+    const MAX_SIZE_BYTES = 5 * 1024 * 1024;
+    validateFileSize(file.buffer, MAX_SIZE_BYTES);
+    const validatedMimeType = validateFileMimeType(file.buffer, file.mimetype);
     const p = parseInt(piso ?? '', 10);
     const a = parseInt(apartamento ?? '', 10);
     if (Number.isNaN(p) || Number.isNaN(a))
       throw new BadRequestException('piso y apartamento inválidos');
     let meses: number[];
     try {
-      meses = JSON.parse(mesesRaw ?? '[]') as number[];
-    } catch {
+      const parsed = JSON.parse(mesesRaw ?? '[]');
+      if (!Array.isArray(parsed)) {
+        throw new BadRequestException('meses debe ser un array');
+      }
+      meses = parsed.filter((m: unknown) => typeof m === 'number' && m >= 1 && m <= 12);
+      if (meses.length === 0) {
+        throw new BadRequestException('Se requiere al menos un mes válido');
+      }
+    } catch (e) {
+      if (e instanceof BadRequestException) throw e;
       throw new BadRequestException('meses inválido');
     }
-    if (!Array.isArray(meses) || meses.length === 0)
-      throw new BadRequestException('Se requiere al menos un mes');
     const monto = parseFloat(montoUsd ?? '');
-    if (Number.isNaN(monto)) throw new BadRequestException('montoUsd inválido');
-    if (!banco?.trim() || !fechaPago?.trim() || !numeroComprobante?.trim())
-      throw new BadRequestException('banco, fechaPago y numeroComprobante requeridos');
-
+    if (Number.isNaN(monto) || monto <= 0) throw new BadRequestException('montoUsd inválido');
+    if (!fechaPago?.trim()) throw new BadRequestException('fechaPago requerido');
+    const bancoSanitizado = sanitizeBanco(banco);
+    const numeroComprobanteSanitizado = sanitizeComprobante(numeroComprobante);
     const montoBsNum =
       montoBs != null && montoBs !== '' ? parseFloat(montoBs) : undefined;
+    if (montoBsNum !== undefined && (Number.isNaN(montoBsNum) || montoBsNum < 0)) {
+      throw new BadRequestException('montoBs inválido');
+    }
     const tasaBcvNum =
       tasaBcv != null && tasaBcv !== '' ? parseFloat(tasaBcv) : undefined;
-
+    if (tasaBcvNum !== undefined && (Number.isNaN(tasaBcvNum) || tasaBcvNum < 0)) {
+      throw new BadRequestException('tasaBcv inválida');
+    }
     let recibosIds: string[] | undefined;
     if (recibosIdsRaw) {
       try {
-        recibosIds = JSON.parse(recibosIdsRaw) as string[];
-        if (!Array.isArray(recibosIds) || recibosIds.length === 0) {
-          recibosIds = undefined;
+        const parsed = JSON.parse(recibosIdsRaw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          recibosIds = parsed.filter((id: unknown) => typeof id === 'string' && Types.ObjectId.isValid(id));
+          if (recibosIds.length === 0) {
+            recibosIds = undefined;
+          }
         }
       } catch {
         recibosIds = undefined;
       }
     }
-
     const payment = await this.paymentsService.create({
       piso: p,
       apartamento: a,
       meses,
-      banco: banco.trim(),
+      banco: bancoSanitizado,
       fechaPago: fechaPago.trim(),
-      numeroComprobante: numeroComprobante.trim(),
+      numeroComprobante: numeroComprobanteSanitizado,
       montoUsd: monto,
       montoBs: montoBsNum,
       tasaBcv: tasaBcvNum,
       comprobanteBuffer: file.buffer,
       comprobanteFilename: file.originalname,
-      comprobanteMimetype: file.mimetype,
+      comprobanteMimetype: validatedMimeType,
       recibosIds,
     });
     const out = payment as unknown as Record<string, unknown>;
@@ -116,10 +132,12 @@ export class PaymentsController {
       apartamento != null && apartamento !== ''
         ? parseInt(apartamento, 10)
         : undefined;
+    const allowedEstados = ['pendiente', 'aceptado', 'rechazado'];
+    const estadoValidado = validateEstado(estado, allowedEstados);
     const list = await this.paymentsService.findAll({
       piso: p != null && !Number.isNaN(p) ? p : undefined,
       apartamento: a != null && !Number.isNaN(a) ? a : undefined,
-      estado: estado != null && estado !== '' ? estado : undefined,
+      estado: estadoValidado,
     });
     return list.map((x) => {
       const row = x as unknown as Record<string, unknown>;

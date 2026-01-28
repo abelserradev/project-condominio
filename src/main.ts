@@ -4,17 +4,40 @@ import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import helmet from 'helmet';
+import * as cookieParser from 'cookie-parser';
+
+const isDevelopment = process.env.NODE_ENV === 'development';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
   });
   
-  // Helmet para headers de seguridad HTTP - configuración más permisiva para desarrollo
-  app.use(helmet({
+  // Cookie parser necesario para CSRF
+  app.use(cookieParser());
+  
+  // Helmet para headers de seguridad HTTP
+  const helmetConfig: Parameters<typeof helmet>[0] = {
     crossOriginResourcePolicy: { policy: 'cross-origin' },
-    contentSecurityPolicy: false, // Desactivado para evitar conflictos en desarrollo
-  }));
+    contentSecurityPolicy: isDevelopment
+      ? false // En desarrollo desactivar para facilitar debugging
+      : {
+          directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", 'data:', 'https:'],
+            fontSrc: ["'self'", 'data:', 'https:'],
+            connectSrc: ["'self'"],
+            frameSrc: ["'none'"],
+            objectSrc: ["'none'"],
+            baseUri: ["'self'"],
+            formAction: ["'self'"],
+            upgradeInsecureRequests: [],
+          },
+        },
+  };
+  app.use(helmet(helmetConfig));
 
   // Filtro global de excepciones
   app.useGlobalFilters(new AllExceptionsFilter());
@@ -35,33 +58,46 @@ async function bootstrap() {
     }),
   );
 
-  // CORS configurado - más permisivo en desarrollo
+  // CORS configurado con restricciones apropiadas
   const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
-  const allowedOrigins = frontendUrl.split(',').map((url) => url.trim());
+  const allowedOrigins = frontendUrl.split(',').map((url) => url.trim()).filter(Boolean);
   
   app.enableCors({
     origin: (origin, callback) => {
-      // En desarrollo, permitir localhost sin origin (peticiones directas)
+      // En producción, rechazar requests sin origin
       if (!origin) {
-        callback(null, true);
+        if (isDevelopment) {
+          callback(null, true);
+          return;
+        }
+        callback(new Error('Origin requerido'));
         return;
       }
-      // Permitir origins configurados
+      
+      // Permitir origins configurados explícitamente
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
         return;
       }
-      // En desarrollo, también permitir localhost con diferentes puertos
-      if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+      
+      // En desarrollo, permitir localhost con diferentes puertos
+      if (isDevelopment && (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:'))) {
         callback(null, true);
         return;
       }
-      console.warn(`[CORS] Origin no permitido: ${origin}`);
-      callback(new Error('No permitido por CORS'));
+      
+      // En producción, rechazar cualquier otro origin
+      if (!isDevelopment) {
+        console.warn(`[CORS] Origin no permitido: ${origin}`);
+        callback(new Error('No permitido por CORS'));
+        return;
+      }
+      
+      callback(null, true);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With', 'X-CSRF-Token'],
     exposedHeaders: ['Authorization'],
   });
 

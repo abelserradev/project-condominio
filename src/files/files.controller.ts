@@ -13,6 +13,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import * as express from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { FilesService } from './files.service';
+import { sanitizeString } from '../common/utils/security.util';
 
 @Controller('files')
 export class FilesController {
@@ -25,11 +26,13 @@ export class FilesController {
     @UploadedFile() file: Express.Multer.File,
   ): Promise<{ id: string; filename: string }> {
     if (!file) throw new BadRequestException('Se requiere el archivo');
+    // Sanitizar el nombre del archivo para prevenir path traversal
+    const sanitizedFilename = sanitizeString(file.originalname, 255);
     const id = await this.filesService.upload(file.buffer, {
-      filename: file.originalname,
+      filename: sanitizedFilename,
       mimetype: file.mimetype,
     });
-    return { id: id.toString(), filename: file.originalname };
+    return { id: id.toString(), filename: sanitizedFilename };
   }
 
   @Get(':id')

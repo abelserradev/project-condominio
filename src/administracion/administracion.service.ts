@@ -188,6 +188,72 @@ export class AdministracionService {
     return result;
   }
 
+  // Método helper privado para procesar abonos en memoria y preparar bulkWrite
+  // Complejidad: O(n) - procesa recibos una vez y usa Map para acceso O(1)
+  private procesarAbonosBulk(
+    recibos: ReciboDocument[],
+    montoPago: number,
+    paymentId: string,
+    fechaPago: Date,
+    numeroComprobante?: string,
+  ): {
+    bulkOps: Array<{ updateOne: { filter: { _id: Types.ObjectId }; update: any } }>;
+    ids: string[];
+    abonosRegistrados: number;
+    recibosCompletos: Set<string>;
+  } {
+    const bulkOps: Array<{ updateOne: { filter: { _id: Types.ObjectId }; update: any } }> = [];
+    const ids: string[] = [];
+    let abonosRegistrados = 0;
+    const recibosCompletos = new Set<string>();
+    let montoRestante = montoPago;
+    // Map para acceso O(1) a recibos por ID
+    const recibosMap = new Map<string, ReciboDocument>();
+    recibos.forEach((recibo) => {
+      const reciboId = (recibo._id as Types.ObjectId).toString();
+      recibosMap.set(reciboId, recibo);
+    });
+    // Procesar recibos en orden hasta agotar el monto
+    for (const recibo of recibos) {
+      if (montoRestante <= 0) break;
+      const reciboId = (recibo._id as Types.ObjectId).toString();
+      const montoPagado = recibo.montoPagado || 0;
+      const montoPendiente = recibo.montoUsd - montoPagado;
+      if (montoPendiente <= 0) continue;
+      const montoAAplicar = Math.min(montoRestante, montoPendiente);
+      const nuevoAbono: Abono = {
+        paymentId: new Types.ObjectId(paymentId),
+        monto: montoAAplicar,
+        fecha: fechaPago,
+        numeroComprobante,
+      };
+      const nuevoMontoPagado = montoPagado + montoAAplicar;
+      const abonosActualizados = [...(recibo.abonos || []), nuevoAbono];
+      const updateData: any = {
+        $set: {
+          montoPagado: nuevoMontoPagado,
+          abonos: abonosActualizados,
+          estado: nuevoMontoPagado >= recibo.montoUsd ? 'pagado' : 'pendiente',
+        },
+      };
+      bulkOps.push({
+        updateOne: {
+          filter: { _id: recibo._id as Types.ObjectId },
+          update: updateData,
+        },
+      });
+      ids.push(reciboId);
+      if (montoAAplicar < montoPendiente) {
+        abonosRegistrados++;
+      }
+      if (nuevoMontoPagado >= recibo.montoUsd) {
+        recibosCompletos.add(reciboId);
+      }
+      montoRestante -= montoAAplicar;
+    }
+    return { bulkOps, ids, abonosRegistrados, recibosCompletos };
+  }
+
   async updateManyByMeses(
     piso: number,
     apartamento: number,
@@ -197,6 +263,7 @@ export class AdministracionService {
     fechaPago: Date,
     numeroComprobante?: string,
   ): Promise<{ count: number; ids: string[]; abonosRegistrados: number }> {
+    // 1 query: O(n) - obtener todos los recibos de una vez
     const recibos = await this.reciboModel
       .find({
         piso,
@@ -215,37 +282,23 @@ export class AdministracionService {
     if (recibosPendientes.length === 0) {
       return { count: 0, ids: [], abonosRegistrados: 0 };
     }
-    const ids: string[] = [];
-    let abonosRegistrados = 0;
-    let montoRestante = montoPago;
-    for (const recibo of recibosPendientes) {
-      if (montoRestante <= 0) break;
-      const reciboId = (recibo._id as Types.ObjectId).toString();
-      const montoPagado = recibo.montoPagado || 0;
-      const montoPendiente = recibo.montoUsd - montoPagado;
-      if (montoPendiente <= 0) continue;
-      const montoAAplicar = Math.min(montoRestante, montoPendiente);
-      await this.registrarAbono(
-        reciboId,
-        paymentId,
-        montoAAplicar,
-        fechaPago,
-        numeroComprobante,
-      );
-      ids.push(reciboId);
-      if (montoAAplicar < montoPendiente) {
-        abonosRegistrados++;
-      }
-      montoRestante -= montoAAplicar;
+    // Procesar en memoria: O(n)
+    const { bulkOps, ids, abonosRegistrados, recibosCompletos } = this.procesarAbonosBulk(
+      recibosPendientes,
+      montoPago,
+      paymentId,
+      fechaPago,
+      numeroComprobante,
+    );
+    // 1 operación bulk: O(n) - actualizar todos los recibos de una vez
+    if (bulkOps.length > 0) {
+      await this.reciboModel.bulkWrite(bulkOps);
     }
-    const recibosCompletos = await this.reciboModel
-      .find({
-        _id: { $in: ids.map((id) => new Types.ObjectId(id)) },
-        estado: 'pagado',
-      })
-      .countDocuments()
-      .exec();
-    return { count: recibosCompletos, ids, abonosRegistrados };
+    // Contar recibos completos desde el Set: O(1)
+    const count = recibosCompletos.size;
+    this.cacheService.deletePattern(`recibos:.*`);
+    this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
+    return { count, ids, abonosRegistrados };
   }
 
   // Aplicar pago a recibos específicos por sus IDs
@@ -260,6 +313,7 @@ export class AdministracionService {
       return { count: 0, ids: [] };
     }
     const objectIds = recibosIds.map((id) => new Types.ObjectId(id));
+    // 1 query: O(n) - obtener todos los recibos de una vez
     const recibos = await this.reciboModel
       .find({
         _id: { $in: objectIds },
@@ -276,27 +330,21 @@ export class AdministracionService {
     if (recibosPendientes.length === 0) {
       return { count: 0, ids: [] };
     }
-    const ids: string[] = [];
-    let montoRestante = montoPago;
-    for (const recibo of recibosPendientes) {
-      if (montoRestante <= 0) break;
-      const reciboId = (recibo._id as Types.ObjectId).toString();
-      const montoPagado = recibo.montoPagado || 0;
-      const montoPendiente = recibo.montoUsd - montoPagado;
-      if (montoPendiente <= 0) continue;
-      const montoAAplicar = Math.min(montoRestante, montoPendiente);
-      await this.registrarAbono(
-        reciboId,
-        paymentId,
-        montoAAplicar,
-        fechaPago,
-        numeroComprobante,
-      );
-      ids.push(reciboId);
-      montoRestante -= montoAAplicar;
+    // Procesar en memoria: O(n)
+    const { bulkOps, ids, recibosCompletos } = this.procesarAbonosBulk(
+      recibosPendientes,
+      montoPago,
+      paymentId,
+      fechaPago,
+      numeroComprobante,
+    );
+    // 1 operación bulk: O(n) - actualizar todos los recibos de una vez
+    if (bulkOps.length > 0) {
+      await this.reciboModel.bulkWrite(bulkOps);
     }
+    const count = recibosCompletos.size;
     this.cacheService.deletePattern(`recibos:.*`);
     this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
-    return { count: ids.length, ids };
+    return { count, ids };
   }
 }

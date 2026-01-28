@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import * as bcrypt from 'bcrypt';
 import { Model } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
+import { validatePasswordStrength } from '../common/utils/password.util';
 
 @Injectable()
 export class UserService implements OnModuleInit {
@@ -54,6 +55,10 @@ export class UserService implements OnModuleInit {
           }
         }
         return;
+      }
+      // Validar fortaleza de contraseña solo si no es un reset (para permitir migraciones)
+      if (process.env.ADMIN_RESET_PASSWORD !== 'true') {
+        validatePasswordStrength(password);
       }
       const passwordHash = await bcrypt.hash(password, 10);
       const newUser = await this.userModel.create({ usuario, passwordHash, rol: 'admin' });

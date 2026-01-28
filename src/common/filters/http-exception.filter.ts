@@ -30,17 +30,25 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
       const isDevelopment = process.env.NODE_ENV === 'development';
 
-      const errorResponse = {
+      // En producción, no exponer información sensible
+      const errorResponse: Record<string, unknown> = {
         statusCode: status,
         timestamp: new Date().toISOString(),
-        path: request.url,
-        method: request.method,
         message: typeof message === 'string' ? message : (message as { message?: string }).message || 'Error desconocido',
-        ...(isDevelopment && {
-          stack: exception instanceof Error ? exception.stack : undefined,
-          error: exception instanceof Error ? exception.message : String(exception),
-        }),
       };
+      
+      // Solo en desarrollo exponer información adicional
+      if (isDevelopment) {
+        errorResponse.path = request.url;
+        errorResponse.method = request.method;
+        errorResponse.stack = exception instanceof Error ? exception.stack : undefined;
+        errorResponse.error = exception instanceof Error ? exception.message : String(exception);
+      } else {
+        // En producción, solo exponer path para errores 4xx (client errors)
+        if (status < 500) {
+          errorResponse.path = request.url;
+        }
+      }
 
       if (status >= 500) {
         this.logger.error(

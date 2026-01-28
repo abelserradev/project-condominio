@@ -4,6 +4,7 @@ import { Connection } from 'mongoose';
 import { Readable } from 'stream';
 import * as mongoose from 'mongoose';
 import { ImageCompressionService } from './image-compression.service';
+import { validateFileMimeType } from '../common/utils/file-validation.util';
 
 const BUCKET_NAME = 'archivos';
 
@@ -25,8 +26,10 @@ export class FilesService {
     metadata: { filename: string; mimetype?: string },
   ): Promise<mongoose.Types.ObjectId> {
     this.imageCompression.validateFileSize(buffer);
+    // Validar tipo MIME real del archivo antes de procesar
+    const validatedMimeType = validateFileMimeType(buffer, metadata.mimetype);
     const { buffer: processedBuffer, mimetype: finalMimetype } =
-      await this.imageCompression.compressImage(buffer, metadata.mimetype);
+      await this.imageCompression.compressImage(buffer, validatedMimeType);
     return new Promise((resolve, reject) => {
       const stream = this.bucket.openUploadStream(metadata.filename, {
         metadata: { mimetype: finalMimetype },
