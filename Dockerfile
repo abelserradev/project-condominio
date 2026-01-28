@@ -12,6 +12,7 @@ COPY . .
 RUN npm run build
 
 FROM base AS runner
+# NODE_ENV se puede sobrescribir desde docker-compose
 ENV NODE_ENV=production
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/node_modules ./node_modules

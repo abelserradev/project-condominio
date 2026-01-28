@@ -38,11 +38,15 @@ export class Payment {
   @Prop({ type: Types.ObjectId })
   comprobanteFileId?: Types.ObjectId;
 
-  @Prop({ default: 'pendiente', enum: ['pendiente', 'pagado', 'rechazado'] })
+  @Prop({ type: [Types.ObjectId], default: [] })
+  recibosPagados?: Types.ObjectId[];
+
+  @Prop({ default: 'pendiente', enum: ['pendiente', 'aceptado', 'pagado', 'rechazado'] })
   estado: string;
 }
 
 export const paymentschema = SchemaFactory.createForClass(Payment);
 
-paymentschema.index({ piso: 1, apartamento: 1 });
-paymentschema.index({ estado: 1 });
+// Índices compuestos para queries comunes
+paymentschema.index({ piso: 1, apartamento: 1, estado: 1 });
+paymentschema.index({ createdAt: -1 });

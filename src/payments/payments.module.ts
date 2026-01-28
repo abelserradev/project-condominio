@@ -1,9 +1,11 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
 import { Payment, paymentschema } from './schemas/payment.schema';
 import { FilesModule } from '../files/files.module';
+import { AdministracionModule } from '../administracion/administracion.module';
+import { CommonModule } from '../common/common.module';
 
 @Module({
   imports: [
@@ -11,6 +13,8 @@ import { FilesModule } from '../files/files.module';
       { name: Payment.name, schema: paymentschema },
     ]),
     FilesModule,
+    forwardRef(() => AdministracionModule),
+    CommonModule,
   ],
   controllers: [PaymentsController],
   providers: [PaymentsService],

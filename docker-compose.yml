@@ -1,7 +1,27 @@
 services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: condominio-api
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/condominio}
+      FRONTEND_URL: http://localhost:3000
+    depends_on:
+      - mongodb
+    networks:
+      - condominio_network
+
   mongodb:
     image: mongo:7
-    container_name: condominio-mongo
+    container_name: condominio-mongodb
     restart: unless-stopped
     ports:
       - "27017:27017"
@@ -9,31 +29,12 @@ services:
       MONGO_INITDB_DATABASE: condominio
     volumes:
       - mongodb_data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+    networks:
+      - condominio_network
 
-  api:
-    build:
-      context: ./backend/condomini
-      dockerfile: Dockerfile
-    container_name: condominio-api
-    restart: unless-stopped
-    ports:
-      - "3001:3001"
-    environment:
-      NODE_ENV: development
-      PORT: 3001
-      MONGODB_URI: mongodb://mongodb:27017/condominio
-      FRONTEND_URL: http://localhost:3000
-      ADMIN_USUARIO: Condominio
-      ADMIN_PASSWORD: JDC2026
-    depends_on:
-      mongodb:
-        condition: service_healthy
+networks:
+  condominio_network:
+    driver: bridge
 
 volumes:
   mongodb_data:

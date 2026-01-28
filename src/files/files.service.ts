@@ -3,6 +3,7 @@ import { InjectConnection } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
 import { Readable } from 'stream';
 import * as mongoose from 'mongoose';
+import { ImageCompressionService } from './image-compression.service';
 
 const BUCKET_NAME = 'archivos';
 
@@ -10,7 +11,10 @@ const BUCKET_NAME = 'archivos';
 export class FilesService {
   private bucket: mongoose.mongo.GridFSBucket;
 
-  constructor(@InjectConnection() private connection: Connection) {
+  constructor(
+    @InjectConnection() private connection: Connection,
+    private readonly imageCompression: ImageCompressionService,
+  ) {
     this.bucket = new mongoose.mongo.GridFSBucket(this.connection.db as mongoose.mongo.Db, {
       bucketName: BUCKET_NAME,
     });
@@ -20,11 +24,14 @@ export class FilesService {
     buffer: Buffer,
     metadata: { filename: string; mimetype?: string },
   ): Promise<mongoose.Types.ObjectId> {
+    this.imageCompression.validateFileSize(buffer);
+    const { buffer: processedBuffer, mimetype: finalMimetype } =
+      await this.imageCompression.compressImage(buffer, metadata.mimetype);
     return new Promise((resolve, reject) => {
       const stream = this.bucket.openUploadStream(metadata.filename, {
-        metadata: { mimetype: metadata.mimetype ?? 'application/octet-stream' },
+        metadata: { mimetype: finalMimetype },
       });
-      const readable = Readable.from(buffer);
+      const readable = Readable.from(processedBuffer);
       readable.pipe(stream);
       stream.on('finish', () => resolve(stream.id as mongoose.Types.ObjectId));
       stream.on('error', reject);

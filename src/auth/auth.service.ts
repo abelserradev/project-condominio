@@ -11,18 +11,19 @@ export class AuthService {
   ) {}
 
   async login(usuario: string, contraseña: string): Promise<{ access_token: string }> {
-    console.log('[AuthService] login intento usuario=', usuario);
+    console.log('[AuthService] login - Buscando usuario:', usuario);
     const user = await this.userService.findByUsuario(usuario);
     if (!user) {
-      console.log('[AuthService] usuario no encontrado:', usuario);
+      console.log('[AuthService] login - Usuario no encontrado');
       throw new UnauthorizedException('Credenciales inválidas');
     }
+    console.log('[AuthService] login - Usuario encontrado, validando contraseña');
     const valid = await this.userService.validatePassword(contraseña, user.passwordHash);
     if (!valid) {
-      console.log('[AuthService] contraseña incorrecta para:', usuario);
+      console.log('[AuthService] login - Contraseña inválida');
       throw new UnauthorizedException('Credenciales inválidas');
     }
-    console.log('[AuthService] login ok:', usuario);
+    console.log('[AuthService] login - Contraseña válida, generando token');
     const payload = { sub: (user as { _id: string })._id.toString(), usuario: user.usuario };
     return { access_token: this.jwtService.sign(payload) };
   }

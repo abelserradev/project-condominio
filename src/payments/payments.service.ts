@@ -1,8 +1,26 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Payment, paymentdocument } from './schemas/payment.schema';
 import { FilesService } from '../files/files.service';
+import { AdministracionService } from '../administracion/administracion.service';
+import { CacheService } from '../common/cache.service';
+
+// Parsear fecha a mediodía UTC para evitar problemas de zona horaria
+function parsearFechaPago(fechaString: string): Date {
+  const partes = fechaString.split('-');
+  if (partes.length !== 3) {
+    const parsed = new Date(fechaString);
+    if (isNaN(parsed.getTime())) {
+      throw new Error(`Fecha inválida: ${fechaString}`);
+    }
+    return new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate(), 12, 0, 0));
+  }
+  const año = parseInt(partes[0], 10);
+  const mes = parseInt(partes[1], 10) - 1;
+  const día = parseInt(partes[2], 10);
+  return new Date(Date.UTC(año, mes, día, 12, 0, 0));
+}
 
 export type CreatePaymentInput = {
   piso: number;
@@ -17,6 +35,7 @@ export type CreatePaymentInput = {
   comprobanteBuffer: Buffer;
   comprobanteFilename: string;
   comprobanteMimetype?: string;
+  recibosIds?: string[];
 };
 
 @Injectable()
@@ -24,6 +43,9 @@ export class PaymentsService {
   constructor(
     @InjectModel(Payment.name) private paymentModel: Model<paymentdocument>,
     private readonly filesService: FilesService,
+    @Inject(forwardRef(() => AdministracionService))
+    private readonly administracionService: AdministracionService,
+    @Inject(CacheService) private readonly cacheService: CacheService,
   ) {}
 
   async create(input: CreatePaymentInput): Promise<paymentdocument> {
@@ -32,21 +54,27 @@ export class PaymentsService {
       filename: input.comprobanteFilename,
       mimetype: input.comprobanteMimetype,
     });
+    // Si se proporcionan recibosIds, guardarlos en el pago para usarlos cuando se acepte
+    const recibosIdsObjectIds = input.recibosIds?.map((id) => new Types.ObjectId(id));
+    
     const doc = await this.paymentModel.create({
       piso: input.piso,
       apartamento: input.apartamento,
       idUnico,
       meses: input.meses,
       banco: input.banco,
-      fechaPago: new Date(input.fechaPago),
+      fechaPago: parsearFechaPago(input.fechaPago),
       numeroComprobante: input.numeroComprobante,
       montoUsd: input.montoUsd,
       montoBs: input.montoBs,
       tasaBcv: input.tasaBcv,
       comprobanteFileId: fileId,
       estado: 'pendiente',
+      recibosPagados: recibosIdsObjectIds || [],
     });
-    return doc.toObject() as paymentdocument;
+    const result = doc.toObject() as paymentdocument;
+    this.cacheService.deletePattern(`payments:.*`);
+    return result;
   }
 
   async findAll(filters: {
@@ -54,61 +82,88 @@ export class PaymentsService {
     apartamento?: number;
     estado?: string;
   }): Promise<paymentdocument[]> {
-    console.log('[PaymentsService] findAll con filtros:', JSON.stringify(filters));
+    const cacheKey = this.cacheService.generateKey('payments', filters);
+    const cached = this.cacheService.get<paymentdocument[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
     const q: Record<string, number | string> = {};
     if (filters.piso != null) q.piso = filters.piso;
     if (filters.apartamento != null) q.apartamento = filters.apartamento;
     if (filters.estado != null) q.estado = filters.estado;
-    console.log('[PaymentsService] query construida:', JSON.stringify(q));
     const list = await this.paymentModel
       .find(q)
       .sort({ createdAt: -1 })
-      .lean();
-    console.log(`[PaymentsService] findAll encontrados ${list.length} pagos`);
-    return list as paymentdocument[];
+      .lean()
+      .exec();
+    const result = list as paymentdocument[];
+    this.cacheService.set(cacheKey, result, 3 * 60 * 1000);
+    return result;
   }
 
   async findById(id: string): Promise<paymentdocument | null> {
-    console.log('[PaymentsService] findById llamado con id:', id);
-    try {
-      const doc = await this.paymentModel.findById(id).lean();
-      if (!doc) {
-        console.log('[PaymentsService] findById: pago no encontrado para id:', id);
-        return null;
-      }
-      console.log('[PaymentsService] findById: pago encontrado:', {
-        _id: doc._id,
-        piso: doc.piso,
-        apartamento: doc.apartamento,
-        estado: (doc as unknown as { estado?: string }).estado,
-      });
-      return doc as paymentdocument;
-    } catch (err) {
-      console.error('[PaymentsService] findById error:', err);
-      throw err;
-    }
+    const doc = await this.paymentModel.findById(id).lean().exec();
+    if (!doc) return null;
+    return doc as paymentdocument;
   }
 
   async updateEstado(id: string, estado: 'aceptado' | 'rechazado'): Promise<paymentdocument> {
-    console.log('[PaymentsService] updateEstado llamado con id:', id, 'estado:', estado);
-    try {
-      const doc = await this.paymentModel.findByIdAndUpdate(
-        id,
-        { estado },
-        { new: true },
-      ).lean();
-      if (!doc) {
-        console.log('[PaymentsService] updateEstado: pago no encontrado para id:', id);
-        throw new NotFoundException('Pago no encontrado');
-      }
-      console.log('[PaymentsService] updateEstado: pago actualizado exitosamente:', {
-        _id: doc._id,
-        nuevoEstado: (doc as unknown as { estado?: string }).estado,
-      });
-      return doc as paymentdocument;
-    } catch (err) {
-      console.error('[PaymentsService] updateEstado error:', err);
-      throw err;
+    const doc = await this.paymentModel.findByIdAndUpdate(
+      id,
+      { estado },
+      { new: true },
+    ).lean().exec();
+    if (!doc) {
+      throw new NotFoundException('Pago no encontrado');
     }
+    const pagoDoc = doc as unknown as paymentdocument;
+    if (estado === 'aceptado') {
+      const paymentId = (doc._id as Types.ObjectId).toString();
+      const fechaPago = pagoDoc.fechaPago instanceof Date 
+        ? pagoDoc.fechaPago 
+        : new Date(pagoDoc.fechaPago);
+      
+      // Si el pago tiene recibosIds guardados (de cuando se creó), usarlos
+      // Si no, usar la lógica por meses
+      let ids: string[] = [];
+      if (pagoDoc.recibosPagados && pagoDoc.recibosPagados.length > 0) {
+        // Los recibos ya están asociados, aplicar el pago a esos recibos específicos
+        const recibosIds = pagoDoc.recibosPagados.map((id) => id.toString());
+        const { count, ids: idsActualizados } = await this.administracionService.updateManyByIds(
+          recibosIds,
+          pagoDoc.montoUsd,
+          paymentId,
+          fechaPago,
+          pagoDoc.numeroComprobante,
+        );
+        ids = idsActualizados;
+      } else {
+        // Lógica original por meses
+        const mesesPago = pagoDoc.meses || [];
+        const { count, ids: idsPorMeses, abonosRegistrados } = await this.administracionService.updateManyByMeses(
+          pagoDoc.piso,
+          pagoDoc.apartamento,
+          mesesPago,
+          pagoDoc.montoUsd,
+          paymentId,
+          fechaPago,
+          pagoDoc.numeroComprobante,
+        );
+        ids = idsPorMeses;
+      }
+      
+      if (ids.length > 0) {
+        const recibosIds = ids.map((id) => new Types.ObjectId(id));
+        await this.paymentModel.findByIdAndUpdate(
+          id,
+          { recibosPagados: recibosIds },
+          { new: true },
+        ).exec();
+      }
+    }
+    this.cacheService.deletePattern(`payments:.*`);
+    this.cacheService.deletePattern(`recibos:.*`);
+    this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
+    return pagoDoc;
   }
 }
