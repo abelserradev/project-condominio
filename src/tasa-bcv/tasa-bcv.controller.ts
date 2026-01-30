@@ -5,8 +5,8 @@ import { tasabcvservice } from './tasa-bcv.services';
 export class tasabcvcontroller {
   constructor(private readonly tasaBcvService: tasabcvservice) {}
 
-    @Get()
-    async getTasa() {
-        return this.tasaBcvService.getTasa();
-    }
+  @Get()
+  async getTasa() {
+    return this.tasaBcvService.getTasa();
+  }
 }

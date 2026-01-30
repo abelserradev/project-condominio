@@ -10,15 +10,24 @@ export class AuthController {
 
   @Post('login')
   @UseGuards(CsrfGuard)
-  @Throttle(5, 60) // 5 intentos por minuto para prevenir fuerza bruta
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // Relajado en dev para debug; ajustar a 5 en prod
   async login(@Body() body: { usuario?: string; contraseña?: string }) {
+    console.log('[Auth] login body recibido', {
+      usuario: body?.usuario ?? '(undefined)',
+      usuarioLength: body?.usuario?.length ?? 0,
+      tieneContraseña: !!body?.contraseña,
+      contraseñaLength: body?.contraseña?.length ?? 0,
+    });
     if (!body.usuario?.trim() || !body.contraseña) {
+      console.log('[Auth] login rechazado: usuario o contraseña faltantes');
       throw new UnauthorizedException('Usuario y contraseña requeridos');
     }
     try {
       const result = await this.authService.login(body.usuario.trim(), body.contraseña);
+      console.log('[Auth] login OK', { usuario: body.usuario.trim() });
       return result;
     } catch (e) {
+      console.log('[Auth] login error', e instanceof Error ? e.message : String(e));
       throw e;
     }
   }

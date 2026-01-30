@@ -6,4 +6,4 @@ import { tasabcvservice } from './tasa-bcv.services';
   controllers: [tasabcvcontroller],
   providers: [tasabcvservice],
 })
-export class tasabcvmodule {}   
+export class tasabcvmodule {}

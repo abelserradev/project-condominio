@@ -1,6 +1,6 @@
 import { Controller, Get, Req, Res } from '@nestjs/common';
-import { Request, Response } from 'express';
-import * as csurf from 'csurf';
+import * as express from 'express';
+import csurf from 'csurf';
 
 /**
  * Controlador para manejar tokens CSRF
@@ -11,7 +11,7 @@ export class CsrfController {
   private csrfProtection = csurf({ cookie: true });
 
   @Get('token')
-  getCsrfToken(@Req() req: Request, @Res() res: Response): void {
+  getCsrfToken(@Req() req: express.Request, @Res() res: express.Response): void {
     // Generar token CSRF y enviarlo en la cookie
     this.csrfProtection(req, res, () => {
       const token = req.csrfToken();
