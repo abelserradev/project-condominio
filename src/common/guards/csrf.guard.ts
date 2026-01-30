@@ -1,6 +1,6 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
-import { Request, Response } from 'express';
-import * as csurf from 'csurf';
+import type { Request, Response } from 'express';
+import csurf from 'csurf';
 
 /**
  * Guard para protección CSRF

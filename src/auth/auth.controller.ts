@@ -10,7 +10,7 @@ export class AuthController {
 
   @Post('login')
   @UseGuards(CsrfGuard)
-  @Throttle(5, 60) // 5 intentos por minuto para prevenir fuerza bruta
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 intentos por minuto para prevenir fuerza bruta
   async login(@Body() body: { usuario?: string; contraseña?: string }) {
     if (!body.usuario?.trim() || !body.contraseña) {
       throw new UnauthorizedException('Usuario y contraseña requeridos');

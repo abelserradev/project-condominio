@@ -1,6 +1,6 @@
 import { Controller, Get, Req, Res } from '@nestjs/common';
-import { Request, Response } from 'express';
-import * as csurf from 'csurf';
+import type { Request, Response } from 'express';
+import csurf from 'csurf';
 
 /**
  * Controlador para manejar tokens CSRF
