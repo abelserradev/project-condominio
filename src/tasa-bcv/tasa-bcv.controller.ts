@@ -1,9 +1,9 @@
 import { Controller, Get } from '@nestjs/common';
-import { tasabcvservice } from './tasa-bcv.services';
+import { TasaBcvService } from './tasa-bcv.services';
 
 @Controller('tasa-bcv')
-export class tasabcvcontroller {
-  constructor(private readonly tasaBcvService: tasabcvservice) {}
+export class TasaBcvController {
+  constructor(private readonly tasaBcvService: TasaBcvService) {}
 
   @Get()
   async getTasa() {

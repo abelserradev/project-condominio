@@ -18,6 +18,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CsrfGuard } from '../common/guards/csrf.guard';
 import { PaymentsService } from './payments.service';
 import { Types } from 'mongoose';
+import { mapPaymentToResponse } from '../common/utils/serialize-mongoose.util';
 import { validateEstado, sanitizeBanco, sanitizeComprobante } from '../common/utils/security.util';
 import { validateFileMimeType, validateFileSize } from '../common/utils/file-validation.util';
 
@@ -107,17 +108,7 @@ export class PaymentsController {
       comprobanteMimetype: validatedMimeType,
       recibosIds,
     });
-    const out = payment as unknown as Record<string, unknown>;
-    const fid = out.comprobanteFileId as { toString?: () => string } | undefined;
-    const recibosPagados = out.recibosPagados as unknown[] | undefined;
-    return {
-      ...out,
-      comprobanteFileId: fid?.toString?.() ?? null,
-      recibosPagados: recibosPagados?.map((id) => {
-        const objId = id as { toString?: () => string };
-        return objId?.toString?.() ?? String(id);
-      }) ?? [],
-    };
+    return mapPaymentToResponse(payment as unknown as Record<string, unknown>);
   }
 
   @Get()
@@ -139,19 +130,7 @@ export class PaymentsController {
       apartamento: a != null && !Number.isNaN(a) ? a : undefined,
       estado: estadoValidado,
     });
-    return list.map((x) => {
-      const row = x as unknown as Record<string, unknown>;
-      const fid = row.comprobanteFileId as { toString?: () => string } | undefined;
-      const recibosPagados = row.recibosPagados as unknown[] | undefined;
-      return {
-        ...row,
-        comprobanteFileId: fid?.toString?.() ?? null,
-        recibosPagados: recibosPagados?.map((id) => {
-          const objId = id as { toString?: () => string };
-          return objId?.toString?.() ?? String(id);
-        }) ?? [],
-      };
-    });
+    return list.map((x) => mapPaymentToResponse(x as unknown as Record<string, unknown>));
   }
 
   // IMPORTANTE: Las rutas específicas deben ir ANTES de la genérica :id
@@ -162,17 +141,7 @@ export class PaymentsController {
       throw new BadRequestException('ID inválido');
     }
     const payment = await this.paymentsService.updateEstado(id, 'aceptado');
-    const row = payment as unknown as Record<string, unknown>;
-    const fid = row.comprobanteFileId as { toString?: () => string } | undefined;
-    const recibosPagados = row.recibosPagados as unknown[] | undefined;
-    return {
-      ...row,
-      comprobanteFileId: fid?.toString?.() ?? null,
-      recibosPagados: recibosPagados?.map((id) => {
-        const objId = id as { toString?: () => string };
-        return objId?.toString?.() ?? String(id);
-      }) ?? [],
-    };
+    return mapPaymentToResponse(payment as unknown as Record<string, unknown>);
   }
 
   @Patch(':id/rechazar')
@@ -182,17 +151,7 @@ export class PaymentsController {
       throw new BadRequestException('ID inválido');
     }
     const payment = await this.paymentsService.updateEstado(id, 'rechazado');
-    const row = payment as unknown as Record<string, unknown>;
-    const fid = row.comprobanteFileId as { toString?: () => string } | undefined;
-    const recibosPagados = row.recibosPagados as unknown[] | undefined;
-    return {
-      ...row,
-      comprobanteFileId: fid?.toString?.() ?? null,
-      recibosPagados: recibosPagados?.map((id) => {
-        const objId = id as { toString?: () => string };
-        return objId?.toString?.() ?? String(id);
-      }) ?? [],
-    };
+    return mapPaymentToResponse(payment as unknown as Record<string, unknown>);
   }
 
   // La ruta genérica :id debe ir AL FINAL
@@ -208,16 +167,6 @@ export class PaymentsController {
     if (!payment) {
       throw new NotFoundException('Pago no encontrado');
     }
-    const row = payment as unknown as Record<string, unknown>;
-    const fid = row.comprobanteFileId as { toString?: () => string } | undefined;
-    const recibosPagados = row.recibosPagados as unknown[] | undefined;
-    return {
-      ...row,
-      comprobanteFileId: fid?.toString?.() ?? null,
-      recibosPagados: recibosPagados?.map((id) => {
-        const objId = id as { toString?: () => string };
-        return objId?.toString?.() ?? String(id);
-      }) ?? [],
-    };
+    return mapPaymentToResponse(payment as unknown as Record<string, unknown>);
   }
 }

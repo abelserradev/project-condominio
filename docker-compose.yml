@@ -12,8 +12,8 @@ services:
     environment:
       NODE_ENV: development
       PORT: 3001
-      MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/condominio}
-      FRONTEND_URL: http://localhost:3000
+      MONGODB_URI: ${MONGODB_URI}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000} 
     depends_on:
       - mongodb
     networks:
