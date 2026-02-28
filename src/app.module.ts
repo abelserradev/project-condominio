@@ -12,7 +12,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { AdministracionModule } from './administracion/administracion.module';
 import { OwnersModule } from './owners/owners.module';
 import { FilesModule } from './files/files.module';
-import { tasabcvmodule } from './tasa-bcv/tasa-bcv.module';
+import { TasaBcvModule } from './tasa-bcv/tasa-bcv.module';
 import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
 import { AvisosModule } from './avisos/avisos.module';
@@ -42,7 +42,7 @@ const mongoUri =
     AdministracionModule,
     OwnersModule,
     FilesModule,
-    tasabcvmodule,
+    TasaBcvModule,
     UserModule,
     AuthModule,
     AvisosModule,

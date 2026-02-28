@@ -15,6 +15,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AdministracionService } from './administracion.service';
 import { Types } from 'mongoose';
+import { mapReciboToResponse } from '../common/utils/serialize-mongoose.util';
 import { validateEstado, sanitizeTipoDeuda } from '../common/utils/security.util';
 import { validateFileMimeType, validateFileSize } from '../common/utils/file-validation.util';
 
@@ -40,14 +41,7 @@ export class AdministracionController {
       piso: p,
       apartamento: a,
     });
-    return list.map((x) => {
-      const row = x as unknown as Record<string, unknown>;
-      const fid = row.facturaFileId as { toString?: () => string } | undefined;
-      return {
-        ...row,
-        facturaFileId: fid?.toString?.() ?? null,
-      };
-    });
+    return list.map((x) => mapReciboToResponse(x as unknown as Record<string, unknown>));
   }
 
   @Post()
@@ -106,12 +100,7 @@ export class AdministracionController {
       facturaFilename: file.originalname,
       facturaMimetype: validatedMimeType,
     });
-    const out = recibo as unknown as Record<string, unknown>;
-    const fid = out.facturaFileId as { toString?: () => string } | undefined;
-    return {
-      ...out,
-      facturaFileId: fid?.toString?.() ?? null,
-    };
+    return mapReciboToResponse(recibo as unknown as Record<string, unknown>);
   }
 
   @Get()
@@ -134,14 +123,7 @@ export class AdministracionController {
       apartamento: a != null && !Number.isNaN(a) ? a : undefined,
       estado: estadoValidado,
     });
-    return list.map((x) => {
-      const row = x as unknown as Record<string, unknown>;
-      const fid = row.facturaFileId as { toString?: () => string } | undefined;
-      return {
-        ...row,
-        facturaFileId: fid?.toString?.() ?? null,
-      };
-    });
+    return list.map((x) => mapReciboToResponse(x as unknown as Record<string, unknown>));
   }
 
   @Get(':id')
@@ -157,11 +139,6 @@ export class AdministracionController {
     if (!recibo) {
       throw new NotFoundException('Recibo no encontrado');
     }
-    const row = recibo as unknown as Record<string, unknown>;
-    const fid = row.facturaFileId as { toString?: () => string } | undefined;
-    return {
-      ...row,
-      facturaFileId: fid?.toString?.() ?? null,
-    };
+    return mapReciboToResponse(recibo as unknown as Record<string, unknown>);
   }
 }
