@@ -1,29 +1,29 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
 
-
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private userService: UserService,
     private jwtService: JwtService,
   ) {}
 
   async login(usuario: string, contraseña: string): Promise<{ access_token: string }> {
-    console.log('[AuthService] login intent', { usuario });
+    this.logger.log(`[DEBUG] login intento para usuario: ${usuario}`);
     const user = await this.userService.findByUsuario(usuario);
     if (!user) {
-      console.log('[AuthService] usuario no encontrado', { usuario });
+      this.logger.log(`[DEBUG] login fallido: usuario no encontrado en BD`);
       throw new UnauthorizedException('Credenciales inválidas');
     }
-    console.log('[AuthService] usuario encontrado', { usuario, _id: (user as { _id: string })._id });
     const valid = await this.userService.validatePassword(contraseña, user.passwordHash);
     if (!valid) {
-      console.log('[AuthService] contraseña inválida', { usuario });
+      this.logger.log(`[DEBUG] login fallido: contraseña incorrecta`);
       throw new UnauthorizedException('Credenciales inválidas');
     }
-    console.log('[AuthService] contraseña OK, generando token', { usuario });
+    this.logger.log(`[DEBUG] login OK para usuario: ${usuario}`);
     const payload = { sub: (user as { _id: string })._id.toString(), usuario: user.usuario };
     return { access_token: this.jwtService.sign(payload) };
   }
