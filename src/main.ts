@@ -80,12 +80,9 @@ async function bootstrap() {
 
   app.enableCors({
     origin: (origin, callback) => {
+      // Peticiones sin Origin: favicon, health checks, curl, acceso directo
       if (!origin) {
-        if (isDevelopment) {
-          callback(null, true);
-          return;
-        }
-        callback(new Error('Origin requerido'));
+        callback(null, true);
         return;
       }
 
