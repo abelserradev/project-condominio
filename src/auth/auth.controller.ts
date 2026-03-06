@@ -13,15 +13,15 @@ export class AuthController {
   @UseGuards(CsrfGuard)
   @Throttle({ default: { limit: 30, ttl: 60000 } }) // TODO: Ajustar a 5 en prod
   async login(@Body() body: { usuario?: string; contraseña?: string }) {
+    this.logger.log(`[DEBUG] POST /auth/login recibido, body.usuario presente: ${!!body?.usuario}, body.contraseña presente: ${!!body?.contraseña}`);
     if (!body.usuario?.trim() || !body.contraseña) {
+      this.logger.log(`[DEBUG] login rechazado: usuario o contraseña vacíos`);
       throw new UnauthorizedException('Usuario y contraseña requeridos');
     }
     try {
-      const result = await this.authService.login(body.usuario.trim(), body.contraseña);
-      this.logger.log(`Login OK: ${body.usuario.trim()}`);
-      return result;
+      return await this.authService.login(body.usuario.trim(), body.contraseña);
     } catch (e) {
-      this.logger.warn(`Login fallido: ${e instanceof Error ? e.message : String(e)}`);
+      this.logger.warn(`[DEBUG] login fallido: ${e instanceof Error ? e.message : String(e)}`);
       throw e;
     }
   }
