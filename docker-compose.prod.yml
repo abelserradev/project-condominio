@@ -1,5 +1,3 @@
-# Docker Compose para producción (Coolify)
-# Coolify asigna dominios a cada servicio; las variables se configuran en la UI
 services:
   api:
     build:
