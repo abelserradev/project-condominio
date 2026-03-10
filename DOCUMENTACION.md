@@ -77,6 +77,9 @@ Crear un archivo `.env` en `backend/condomini/` con al menos:
 | Variable | Descripción | Ejemplo |
 |----------|-------------|---------|
 | `MONGODB_URI` | Cadena de conexión a MongoDB. | `mongodb://localhost:27017/condominio` o `mongodb://mongodb:27017/condominio` (Docker) |
+| `MONGODB_URI` | Cadena de conexión a MongoDB. | Sin auth: `mongodb://mongodb:27017/condominio`. Con auth: `mongodb://usuario:password@mongodb:27017/condominio?authSource=admin` |
+| `MONGO_INITDB_ROOT_USERNAME` | Usuario root de MongoDB (solo Docker; crea el usuario en el primer arranque). | `iracuza` |
+| `MONGO_INITDB_ROOT_PASSWORD` | Contraseña del usuario root (solo Docker). | Una contraseña segura |
 | `PORT` | Puerto donde escucha la API. | `3001` |
 | `FRONTEND_URL` | URL del frontend (para CORS). | `http://localhost:3000` |
 | `JWT_SECRET` | Clave secreta para los tokens de sesión. | Una cadena larga y aleatoria |
@@ -90,6 +93,8 @@ Crear un archivo `.env` en `backend/condomini/` con al menos:
 | `DISABLE_CSRF` | Si está definida, desactiva la protección CSRF (útil en desarrollo). |
 
 **Importante:** No subir nunca archivos `.env` al repositorio. Contienen datos sensibles.
+
+**Producción (Coolify):** Para MongoDB con autenticación, configurar en Coolify: `MONGO_INITDB_ROOT_USERNAME`, `MONGO_INITDB_ROOT_PASSWORD` y `MONGODB_URI` con credenciales. El usuario se crea solo en el primer arranque con volumen vacío; si el volumen ya existe, hay que borrarlo y redeployar.
 
 ---
 
