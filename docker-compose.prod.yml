@@ -5,6 +5,8 @@ services:
       dockerfile: Dockerfile
     container_name: condominio-api
     restart: unless-stopped
+    ports:
+      - "3001:3001"  
     environment:
       NODE_ENV: production
       PORT: 3001
