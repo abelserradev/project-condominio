@@ -16,6 +16,8 @@ import { TasaBcvModule } from './tasa-bcv/tasa-bcv.module';
 import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
 import { AvisosModule } from './avisos/avisos.module';
+import { OcrModule } from './ocr/ocr.module';
+
 const mongoUri =
   process.env.MONGODB_URI ?? 'mongodb://localhost:27017/condominio';
 
@@ -46,6 +48,7 @@ const mongoUri =
     UserModule,
     AuthModule,
     AvisosModule,
+    OcrModule,
   ],
   controllers: [AppController],
   providers: [

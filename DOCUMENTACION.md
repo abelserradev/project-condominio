@@ -96,6 +96,8 @@ Crear un archivo `.env` en `backend/condomini/` con al menos:
 
 **Producción (Coolify):** Para MongoDB con autenticación, configurar en Coolify: `MONGO_INITDB_ROOT_USERNAME`, `MONGO_INITDB_ROOT_PASSWORD` y `MONGODB_URI` con credenciales. El usuario se crea solo en el primer arranque con volumen vacío; si el volumen ya existe, hay que borrarlo y redeployar.
 
+**Logs de MongoDB en producción:** El `docker-compose.prod.yml` configura MongoDB con `--quiet` y `--logpath /tmp/mongod.log` para evitar que usuario y base de datos aparezcan en los logs de Docker/Coolify (stdout). Así se reduce la información sensible expuesta a un atacante que acceda a los logs.
+
 ---
 
 ## 6. Endpoints principales (para desarrolladores)

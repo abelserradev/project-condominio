@@ -89,6 +89,7 @@ Este documento describe todas las mejoras de seguridad implementadas en el backe
   - Tokens JWT
   - Información de usuarios en logs de autenticación
 - **Mantenido**: Logs de errores sin información sensible
+- **MongoDB (producción)**: En `docker-compose.prod.yml`, MongoDB usa `--quiet` y `--logpath /tmp/mongod.log` para que usuario y base de datos no aparezcan en los logs de Docker/Coolify (stdout), reduciendo la información útil para un atacante
 
 ## 9. Variables de Entorno
 
