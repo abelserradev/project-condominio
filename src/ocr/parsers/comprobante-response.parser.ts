@@ -70,6 +70,7 @@ function applyRegexFallback(
 ): void {
   if (!dto.montoBs) {
     const montoMatch =
+      raw.match(/[Mm]onto\s*\([Bb]s\.?\)\s*:?\s*[\s\n]*([\d.,]+)/) ??
       raw.match(/[Bb]s\.?\s*([\d.,]+)/i) ??
       raw.match(/(?:monto operación|monto)\s*\(?bs\.?\)?\s*:?\s*([\d.,]+)/i) ??
       raw.match(/(?:bs|bol[ií]vares?)\s*:?\s*([\d.,]+)/i) ??
@@ -101,15 +102,43 @@ function applyRegexFallback(
   }
   if (!dto.numeroComprobante) {
     const refMatch =
+      raw.match(/[Nn]ro\.?\s*de\s*referencia\s*:?\s*[\s\n]*(\d{5,})/i) ??
       raw.match(/(?:número de operación|numero de operacion)\s+es\s+(\d+)/i) ??
-      raw.match(/(?:operación|operacion|referencia)\s*:?\s*(\d{8,})/i) ??
+      raw.match(/(?:operación|operacion|referencia)\s*:?\s*(\d{5,})/i) ??
       raw.match(/(\d{10,})/);
     if (refMatch) dto.numeroComprobante = refMatch[1];
   }
   if (!dto.banco) {
-    if (/banco\s+de\s+venezuela|bdv|pagomóvil/i.test(raw)) {
-      dto.banco = 'Banco de Venezuela';
-    } else if (/mercantil/i.test(raw)) dto.banco = 'Banco Mercantil';
-    else if (/provincial/i.test(raw)) dto.banco = 'Banco Provincial';
+    const bancoEnvioMatch = raw.match(
+      /(?:banco\s+de\s+env[ií]o|banco\s+origen)\s*:?\s*[\s\n]*([^\n]+)/i,
+    );
+    if (bancoEnvioMatch) {
+      const nombre = bancoEnvioMatch[1].trim();
+      if (nombre) dto.banco = resolveNombreBanco(nombre);
+    }
+    if (!dto.banco && /banco\s+destino/i.test(raw)) {
+      if (/mercantil/i.test(raw)) dto.banco = 'Banco Mercantil';
+      else if (/bancamiga/i.test(raw)) dto.banco = 'Bancamiga';
+      else if (/provincial/i.test(raw)) dto.banco = 'Banco Provincial';
+      else if (/bod|occidental\s*descuento/i.test(raw)) dto.banco = 'Banco Occidental de Descuento (BOD)';
+    }
+    if (!dto.banco && !/banco\s+destino/i.test(raw)) {
+      if (/banco\s+de\s+venezuela|bdv|pagomóvil/i.test(raw)) {
+        dto.banco = 'Banco de Venezuela';
+      } else if (/mercantil/i.test(raw)) dto.banco = 'Banco Mercantil';
+      else if (/bancamiga/i.test(raw)) dto.banco = 'Bancamiga';
+      else if (/provincial/i.test(raw)) dto.banco = 'Banco Provincial';
+    }
   }
+}
+
+function resolveNombreBanco(texto: string): string {
+  const t = texto.toLowerCase();
+  if (/mercantil/i.test(t)) return 'Banco Mercantil';
+  if (/venezuela|bdv/i.test(t)) return 'Banco de Venezuela';
+  if (/bancamiga/i.test(t)) return 'Bancamiga';
+  if (/bnc|nacional\s*cr[eé]dito/i.test(t)) return 'BNC Banco Universal';
+  if (/provincial/i.test(t)) return 'Banco Provincial';
+  if (/bod|occidental/i.test(t)) return 'Banco Occidental de Descuento (BOD)';
+  return texto.trim();
 }
