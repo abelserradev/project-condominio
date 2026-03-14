@@ -70,6 +70,7 @@ function applyRegexFallback(
 ): void {
   if (!dto.montoBs) {
     const montoMatch =
+      raw.match(/[Bb]s\.?\s*([\d.,]+)/i) ??
       raw.match(/(?:monto operación|monto)\s*\(?bs\.?\)?\s*:?\s*([\d.,]+)/i) ??
       raw.match(/(?:bs|bol[ií]vares?)\s*:?\s*([\d.,]+)/i) ??
       raw.match(/([\d.,]+)\s*bs/i);
@@ -84,10 +85,15 @@ function applyRegexFallback(
       raw.match(/(?:fecha operación|fecha)\s*:?\s*(\d{2})-(\d{2})-(\d{4})/i) ??
       raw.match(/(\d{4})-(\d{2})-(\d{2})/) ??
       raw.match(/(\d{2})\/(\d{2})\/(\d{4})/) ??
+      raw.match(/(\d{2})\/(\d{2})\/(\d{2})/) ??  // Bancamiga: "27/02/26"
       raw.match(/(\d{2})-(\d{2})-(\d{4})/);
     if (fechaMatch) {
       if (fechaMatch[0].match(/^\d{4}-\d{2}-\d{2}$/)) {
         dto.fechaPago = fechaMatch[0];
+      } else if (fechaMatch[3]?.length === 2) {
+        const yy = parseInt(fechaMatch[3], 10);
+        const fullYear = yy >= 0 && yy <= 50 ? 2000 + yy : 1900 + yy;
+        dto.fechaPago = `${fullYear}-${fechaMatch[2]}-${fechaMatch[1]}`;
       } else {
         dto.fechaPago = `${fechaMatch[3]}-${fechaMatch[2]}-${fechaMatch[1]}`;
       }
