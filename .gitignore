@@ -58,3 +58,8 @@ pids
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 /dumps
+
+# Documentación local (no versionar)
+GPU_DRIVERS.md
+OCR_SETUP.md
+DOCUMENTACION.md
