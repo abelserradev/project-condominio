@@ -13,10 +13,21 @@ services:
       NODE_ENV: development
       PORT: 3001
       MONGODB_URI: ${MONGODB_URI}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       OLLAMA_URL: http://ollama:11434
     depends_on:
       - mongodb
+      - redis
+    networks:
+      - condominio_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: condominio-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
     networks:
       - condominio_network
 

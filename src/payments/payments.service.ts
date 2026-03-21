@@ -73,7 +73,7 @@ export class PaymentsService {
       recibosPagados: recibosIdsObjectIds || [],
     });
     const result = doc.toObject() as paymentdocument;
-    this.cacheService.deletePattern(`payments:.*`);
+    await this.cacheService.deletePattern(`payments:.*`);
     return result;
   }
 
@@ -83,7 +83,7 @@ export class PaymentsService {
     estado?: string;
   }): Promise<paymentdocument[]> {
     const cacheKey = this.cacheService.generateKey('payments', filters);
-    const cached = this.cacheService.get<paymentdocument[]>(cacheKey);
+    const cached = await this.cacheService.get<paymentdocument[]>(cacheKey);
     if (cached) {
       return cached;
     }
@@ -97,7 +97,7 @@ export class PaymentsService {
       .lean()
       .exec();
     const result = list as paymentdocument[];
-    this.cacheService.set(cacheKey, result, 3 * 60 * 1000);
+    await this.cacheService.set(cacheKey, result, 3 * 60 * 1000);
     return result;
   }
 
@@ -161,9 +161,9 @@ export class PaymentsService {
         ).exec();
       }
     }
-    this.cacheService.deletePattern(`payments:.*`);
-    this.cacheService.deletePattern(`recibos:.*`);
-    this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
+    await this.cacheService.deletePattern(`payments:.*`);
+    await this.cacheService.deletePattern(`recibos:.*`);
+    await this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
     return pagoDoc;
   }
 }

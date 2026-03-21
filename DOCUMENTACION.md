@@ -86,10 +86,11 @@ Crear un archivo `.env` en `backend/condomini/` con al menos:
 | `ADMIN_USUARIO` | Usuario del administrador. | `admin` |
 | `ADMIN_PASSWORD` | Contraseña del administrador. | Una contraseña segura |
 
-**Opcional (solo desarrollo):**
+**Opcional:**
 
 | Variable | Descripción |
 |----------|-------------|
+| `REDIS_URL` | Conexión a Redis para caché distribuido y avisos sin leer. Si no está definida, se usa memoria local. | `redis://redis:6379` (Docker) |
 | `DISABLE_CSRF` | Si está definida, desactiva la protección CSRF (útil en desarrollo). |
 
 **Importante:** No subir nunca archivos `.env` al repositorio. Contienen datos sensibles.
@@ -111,6 +112,8 @@ Crear un archivo `.env` en `backend/condomini/` con al menos:
 | GET | `/banks` | Lista de bancos. |
 | GET | `/apartments` | Lista de apartamentos. |
 | GET | `/avisos` | Lista de avisos publicados. |
+| GET | `/avisos/unread-count?deviceId=` | Cuenta avisos sin leer para el dispositivo (badge campana). |
+| POST | `/avisos/mark-read` | Marca avisos como leídos para el dispositivo (body: `{ deviceId }`). |
 | GET | `/csrf/token` | Token CSRF (para login y crear pagos). |
 | POST | `/auth/login` | Login de administrador. |
 | POST | `/payments` | Crear pago reportado (requiere token CSRF). |

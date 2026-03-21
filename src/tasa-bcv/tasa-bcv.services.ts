@@ -42,15 +42,15 @@ export class TasaBcvService {
   async getTasa(): Promise<TasaBcvResult> {
     const key = `tasa-bcv:${getVenezuelaDateString()}`;
 
-    const cached = this.cacheService.get<TasaBcvResult>(key);
+    const cached = await this.cacheService.get<TasaBcvResult>(key);
     if (cached) return cached;
 
     const pending = this.pendingPromises.get(key);
     if (pending) return pending;
 
     const fetchPromise = this.fetchTasaFromApi()
-      .then((result) => {
-        this.cacheService.set(key, result, TTL_MS);
+      .then(async (result) => {
+        await this.cacheService.set(key, result, TTL_MS);
         this.pendingPromises.delete(key);
         return result;
       })
@@ -83,15 +83,15 @@ export class TasaBcvService {
     }
 
     const key = `tasa-bcv:fecha:${fecha}`;
-    const cached = this.cacheService.get<TasaBcvResult>(key);
+    const cached = await this.cacheService.get<TasaBcvResult>(key);
     if (cached) return cached;
 
     const pending = this.pendingPromises.get(key);
     if (pending) return pending;
 
     const fetchPromise = this.fetchTasaHistoricoPorFecha(fecha)
-      .then((result) => {
-        this.cacheService.set(key, result, TTL_HISTORICO_MS);
+      .then(async (result) => {
+        await this.cacheService.set(key, result, TTL_HISTORICO_MS);
         this.pendingPromises.delete(key);
         return result;
       })

@@ -6,6 +6,7 @@ import {
     Patch,
     Delete,
     Param,
+    Query,
     UseGuards,
     NotFoundException,
 } from '@nestjs/common';
@@ -35,6 +36,21 @@ export class AvisosController {
     async findAll() {
         const list = await this.avisosService.findAll();
         return list.map((item) => mapDocToResponse(item as Parameters<typeof mapDocToResponse>[0]));
+    }
+
+    @Get('unread-count')
+    async getUnreadCount(@Query('deviceId') deviceId: string | undefined) {
+        const count = await this.avisosService.getUnreadCount(deviceId ?? null);
+        return { count };
+    }
+
+    @Post('mark-read')
+    async markAsRead(@Body('deviceId') deviceId: string) {
+        if (!deviceId) {
+            return { ok: true };
+        }
+        await this.avisosService.markAsRead(deviceId);
+        return { ok: true };
     }
 
     @Get(':id')

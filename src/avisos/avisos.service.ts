@@ -4,11 +4,13 @@ import { Model, Types } from 'mongoose';
 import { Aviso, AvisoDocument } from './schemas/aviso.schema';
 import { CreateAvisoDto } from './dto/create-aviso.dto';
 import { UpdateAvisoDto } from './dto/update-aviso.dto';
+import { CacheService } from '../common/cache.service';
 
 @Injectable()
 export class AvisosService {
     constructor(
         @InjectModel(Aviso.name) private avisoModel: Model<AvisoDocument>,
+        private readonly cacheService: CacheService,
     ) {}
 
     async findAll(): Promise<AvisoDocument[]> {
@@ -65,6 +67,41 @@ export class AvisosService {
         const result = await this.avisoModel.findOneAndDelete({ _id: objectId }).exec();
         if (!result) {
             throw new NotFoundException(`Aviso con id ${id} no encontrado`);
+        }
+    }
+
+    /**
+     * Cuenta avisos publicados más recientes que la última visita del dispositivo.
+     * Sin deviceId o sin Redis: devuelve 0 (badge oculto).
+     */
+    async getUnreadCount(deviceId: string | null): Promise<number> {
+        if (!deviceId) return 0;
+
+        const lastReadAt = await this.cacheService.getAvisosLastRead(deviceId);
+
+        const publicados = await this.avisoModel
+            .find({ estado: 'publicado' })
+            .select('createdAt')
+            .sort({ createdAt: -1 })
+            .lean()
+            .exec();
+
+        if (publicados.length === 0) return 0;
+
+        const lastRead = lastReadAt ?? 0;
+        const count = publicados.filter((a) => {
+            const raw = (a as { createdAt?: Date }).createdAt;
+            const ts = raw instanceof Date ? raw.getTime() : new Date(String(raw)).getTime();
+            return ts > lastRead;
+        }).length;
+
+        return count;
+    }
+
+    /** Marca avisos como leídos para el dispositivo */
+    async markAsRead(deviceId: string): Promise<void> {
+        if (deviceId) {
+            await this.cacheService.setAvisosLastRead(deviceId);
         }
     }
 }

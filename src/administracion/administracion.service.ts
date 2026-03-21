@@ -65,8 +65,8 @@ export class AdministracionService {
       abonos: [],
     });
     const result = doc.toObject() as ReciboDocument;
-    this.cacheService.deletePattern(`recibos:.*`);
-    this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
+    await this.cacheService.deletePattern(`recibos:.*`);
+    await this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
     return result;
   }
 
@@ -76,7 +76,7 @@ export class AdministracionService {
     estado?: string;
   }): Promise<ReciboDocument[]> {
     const cacheKey = this.cacheService.generateKey('recibos', filters);
-    const cached = this.cacheService.get<ReciboDocument[]>(cacheKey);
+    const cached = await this.cacheService.get<ReciboDocument[]>(cacheKey);
     if (cached) {
       return cached;
     }
@@ -90,7 +90,7 @@ export class AdministracionService {
       .lean()
       .exec();
     const result = list as ReciboDocument[];
-    this.cacheService.set(cacheKey, result, 3 * 60 * 1000);
+    await this.cacheService.set(cacheKey, result, 3 * 60 * 1000);
     return result;
   }
 
@@ -99,7 +99,7 @@ export class AdministracionService {
     apartamento?: number;
   }): Promise<ReciboDocument[]> {
     const cacheKey = this.cacheService.generateKey('recibos_pendientes_saldo', filters);
-    const cached = this.cacheService.get<ReciboDocument[]>(cacheKey);
+    const cached = await this.cacheService.get<ReciboDocument[]>(cacheKey);
     if (cached) {
       return cached;
     }
@@ -115,7 +115,7 @@ export class AdministracionService {
       const montoPagado = recibo.montoPagado || 0;
       return montoPagado < recibo.montoUsd;
     }) as ReciboDocument[];
-    this.cacheService.set(cacheKey, result, 3 * 60 * 1000);
+    await this.cacheService.set(cacheKey, result, 3 * 60 * 1000);
     return result;
   }
 
@@ -135,8 +135,8 @@ export class AdministracionService {
       throw new NotFoundException('Recibo no encontrado');
     }
     const result = doc as ReciboDocument;
-    this.cacheService.deletePattern(`recibos:.*`);
-    this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
+    await this.cacheService.deletePattern(`recibos:.*`);
+    await this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
     return result;
   }
 
@@ -183,8 +183,8 @@ export class AdministracionService {
       throw new NotFoundException('Recibo no encontrado');
     }
     const result = doc as ReciboDocument;
-    this.cacheService.deletePattern(`recibos:.*`);
-    this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
+    await this.cacheService.deletePattern(`recibos:.*`);
+    await this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
     return result;
   }
 
@@ -296,8 +296,8 @@ export class AdministracionService {
     }
     // Contar recibos completos desde el Set: O(1)
     const count = recibosCompletos.size;
-    this.cacheService.deletePattern(`recibos:.*`);
-    this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
+    await this.cacheService.deletePattern(`recibos:.*`);
+    await this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
     return { count, ids, abonosRegistrados };
   }
 
@@ -343,8 +343,8 @@ export class AdministracionService {
       await this.reciboModel.bulkWrite(bulkOps);
     }
     const count = recibosCompletos.size;
-    this.cacheService.deletePattern(`recibos:.*`);
-    this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
+    await this.cacheService.deletePattern(`recibos:.*`);
+    await this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
     return { count, ids };
   }
 }
