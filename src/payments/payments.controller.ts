@@ -134,6 +134,22 @@ export class PaymentsController {
     return list.map((x) => mapPaymentToResponse(x as unknown as Record<string, unknown>));
   }
 
+  // Endpoint público para residentes — requiere piso y apartamento obligatorios
+  // No expone pagos de otros apartamentos ni permite enumerar sin filtro
+  @Get('public/por-apartamento')
+  async findPublicByApartamento(
+    @Query('piso') piso: string,
+    @Query('apartamento') apartamento: string,
+  ) {
+    const p = parseInt(piso ?? '', 10);
+    const a = parseInt(apartamento ?? '', 10);
+    if (Number.isNaN(p) || Number.isNaN(a)) {
+      throw new BadRequestException('piso y apartamento son requeridos');
+    }
+    const list = await this.paymentsService.findAll({ piso: p, apartamento: a });
+    return list.map((x) => mapPaymentToResponse(x as unknown as Record<string, unknown>));
+  }
+
   // IMPORTANTE: Las rutas específicas deben ir ANTES de la genérica :id
   @Patch(':id/aceptar')
   @UseGuards(JwtAuthGuard)
