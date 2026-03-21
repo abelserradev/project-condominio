@@ -11,17 +11,18 @@ export class AuthController {
 
   @Post('login')
   @UseGuards(CsrfGuard)
-  @Throttle({ default: { limit: 30, ttl: 60000 } }) // TODO: Ajustar a 5 en prod
+  // TODO: Bajar a limit: 5 en producción para mitigar fuerza bruta
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   async login(@Body() body: { usuario?: string; contraseña?: string }) {
-    this.logger.log(`[DEBUG] POST /auth/login recibido, body.usuario presente: ${!!body?.usuario}, body.contraseña presente: ${!!body?.contraseña}`);
     if (!body.usuario?.trim() || !body.contraseña) {
-      this.logger.log(`[DEBUG] login rechazado: usuario o contraseña vacíos`);
       throw new UnauthorizedException('Usuario y contraseña requeridos');
     }
     try {
-      return await this.authService.login(body.usuario.trim(), body.contraseña);
+      const result = await this.authService.login(body.usuario.trim(), body.contraseña);
+      this.logger.log(`Login exitoso para usuario: ${body.usuario.trim()}`);
+      return result;
     } catch (e) {
-      this.logger.warn(`[DEBUG] login fallido: ${e instanceof Error ? e.message : String(e)}`);
+      this.logger.warn(`Login fallido para usuario: ${body.usuario?.trim() ?? 'desconocido'}`);
       throw e;
     }
   }

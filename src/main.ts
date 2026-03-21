@@ -101,11 +101,8 @@ async function bootstrap() {
         return;
       }
 
-      if (isDevelopment) {
-        callback(null, origin);
-        return;
-      }
-
+      // No hay fallback permisivo — cualquier origen no reconocido queda bloqueado
+      // incluso en desarrollo, para evitar que NODE_ENV=development en prod abra el CORS
       callback(new Error('No permitido por CORS'));
     },
     credentials: true,

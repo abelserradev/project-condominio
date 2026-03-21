@@ -112,6 +112,7 @@ export class PaymentsController {
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard)
   async findAll(
     @Query('piso') piso: string,
     @Query('apartamento') apartamento: string,
@@ -156,6 +157,7 @@ export class PaymentsController {
 
   // La ruta genérica :id debe ir AL FINAL
   @Get(':id')
+  @UseGuards(JwtAuthGuard)
   async findOne(@Param('id') id: string) {
     if (!id || id.trim() === '') {
       throw new BadRequestException('ID requerido');
