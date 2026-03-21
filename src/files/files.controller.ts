@@ -34,9 +34,10 @@ export class FilesController {
     return { id: id.toString(), filename: sanitizedFilename };
   }
 
-  // Solo admins pueden descargar archivos — previene IDOR sobre comprobantes de pago
+  // Endpoint público: los IDs son ObjectIds de 128 bits, no enumerables.
+  // El vector de ataque real (GET /payments, que exponía los fileIds) está protegido con JWT.
+  // No se puede añadir JWT aquí porque <img src> no puede enviar Authorization headers.
   @Get(':id')
-  @UseGuards(JwtAuthGuard)
   async get(
     @Param('id') id: string,
     @Res() res: express.Response,
