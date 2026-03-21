@@ -14,6 +14,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AdministracionService } from './administracion.service';
+import { AbonoApartamentoService } from './abono-apartamento.service';
 import { Types } from 'mongoose';
 import { mapReciboToResponse } from '../common/utils/serialize-mongoose.util';
 import { validateEstado, sanitizeTipoDeuda } from '../common/utils/security.util';
@@ -21,7 +22,24 @@ import { validateFileMimeType, validateFileSize } from '../common/utils/file-val
 
 @Controller('administracion')
 export class AdministracionController {
-  constructor(private readonly administracionService: AdministracionService) {}
+  constructor(
+    private readonly administracionService: AdministracionService,
+    private readonly abonoApartamentoService: AbonoApartamentoService,
+  ) {}
+
+  @Get('public/abono')
+  async getAbonoPublico(
+    @Query('piso') piso: string,
+    @Query('apartamento') apartamento: string,
+  ) {
+    const p = piso != null && piso !== '' ? parseInt(piso, 10) : undefined;
+    const a = apartamento != null && apartamento !== '' ? parseInt(apartamento, 10) : undefined;
+    if (p == null || a == null || Number.isNaN(p) || Number.isNaN(a)) {
+      throw new BadRequestException('piso y apartamento requeridos');
+    }
+    const monto = await this.abonoApartamentoService.getMonto(p, a);
+    return { monto };
+  }
 
   @Get('public/pendientes')
   async findPendientesPublicos(

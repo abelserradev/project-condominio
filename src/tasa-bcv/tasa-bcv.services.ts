@@ -7,6 +7,7 @@ const TTL_MS = 26 * 60 * 60 * 1000; // 26h - cubre el día completo Venezuela
 const TTL_HISTORICO_MS = 7 * 24 * 60 * 60 * 1000; // 7 días - datos históricos no cambian
 
 const FECHA_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+const MAX_DAYS_HISTORY = 7; // Limite para buscar tasa en días anteriores
 
 export interface TasaBcvHistoricoItem {
   fuente: string;
@@ -31,6 +32,12 @@ function getVenezuelaDateString(): string {
   const now = new Date();
   const venezuela = new Date(now.getTime() + (now.getTimezoneOffset() - 240) * 60 * 1000);
   return venezuela.toISOString().slice(0, 10);
+}
+
+function restarDias(fecha: string, dias: number): string {
+  const d = new Date(fecha + 'T12:00:00Z');
+  d.setDate(d.getUTCDate() - dias);
+  return d.toISOString().slice(0, 10);
 }
 
 @Injectable()
@@ -108,13 +115,17 @@ export class TasaBcvService {
     const res = await fetch(DOLAR_HISTORICOS_URL);
     if (!res.ok) throw new Error('Error al obtener histórico de tasa BCV');
     const data = (await res.json()) as TasaBcvHistoricoItem[];
-    const entrada = data.find((e) => e.fecha === fecha);
-    if (!entrada) {
-      throw new NotFoundException(`No hay tasa BCV registrada para la fecha ${fecha}`);
+    let f = fecha;
+    for (let i = 0; i < MAX_DAYS_HISTORY; i++) {
+      const entrada = data.find((e) => e.fecha === f);
+      if (entrada) {
+        return {
+          promedio: entrada.promedio,
+          fechaActualizacion: entrada.fecha,
+        };
+      }
+      f = restarDias(f, 1);
     }
-    return {
-      promedio: entrada.promedio,
-      fechaActualizacion: entrada.fecha,
-    };
+    throw new NotFoundException(`No hay tasa BCV registrada para la fecha ${fecha}`);
   }
 }

@@ -4,6 +4,7 @@ import { Model, Types } from 'mongoose';
 import { Recibo, ReciboDocument, Abono } from './schemas/recibo.schema';
 import { FilesService } from '../files/files.service';
 import { CacheService } from '../common/cache.service';
+import { AbonoApartamentoService } from './abono-apartamento.service';
 
 export type CreateReciboInput = {
   piso: number;
@@ -43,6 +44,7 @@ export class AdministracionService {
     @InjectModel(Recibo.name) private reciboModel: Model<ReciboDocument>,
     private readonly filesService: FilesService,
     @Inject(CacheService) private readonly cacheService: CacheService,
+    private readonly abonoApartamentoService: AbonoApartamentoService,
   ) {}
 
   async create(input: CreateReciboInput): Promise<ReciboDocument> {
@@ -123,6 +125,82 @@ export class AdministracionService {
     const doc = await this.reciboModel.findById(id).lean().exec();
     if (!doc) return null;
     return doc as ReciboDocument;
+  }
+
+  /**
+   * Aplica pago aceptado con soporte de abono: exceso va a abono; si hay abono, se usa para cubrir deuda.
+   */
+  async applyPagoAceptado(params: {
+    piso: number;
+    apartamento: number;
+    recibosIds?: string[];
+    meses?: number[];
+    montoPago: number;
+    paymentId: string;
+    fechaPago: Date;
+    numeroComprobante?: string;
+  }): Promise<{ count: number; ids: string[] }> {
+    let recibosPendientes: ReciboDocument[];
+    if (params.recibosIds && params.recibosIds.length > 0) {
+      const objectIds = params.recibosIds.map((id) => new Types.ObjectId(id));
+      const list = await this.reciboModel.find({ _id: { $in: objectIds } }).lean().exec();
+      recibosPendientes = list.filter((r) => {
+        const montoPagado = r.montoPagado || 0;
+        return montoPagado < r.montoUsd;
+      }) as ReciboDocument[];
+    } else if (params.meses && params.meses.length > 0) {
+      const list = await this.reciboModel
+        .find({ piso: params.piso, apartamento: params.apartamento, meses: { $in: params.meses } })
+        .lean()
+        .exec();
+      recibosPendientes = list.filter((r) => {
+        const montoPagado = r.montoPagado || 0;
+        return montoPagado < r.montoUsd;
+      }) as ReciboDocument[];
+    } else {
+      return { count: 0, ids: [] };
+    }
+    if (recibosPendientes.length === 0) return { count: 0, ids: [] };
+
+    const totalDebt = recibosPendientes.reduce((sum, r) => {
+      const montoPagado = r.montoPagado || 0;
+      return sum + (r.montoUsd - montoPagado);
+    }, 0);
+    const abono = await this.abonoApartamentoService.getMonto(params.piso, params.apartamento);
+    const amountFromPayment = Math.min(params.montoPago, totalDebt);
+    const excess = Math.max(0, params.montoPago - totalDebt);
+    const amountFromAbono = Math.min(abono, totalDebt - amountFromPayment);
+    const totalToApply = amountFromPayment + amountFromAbono;
+
+    if (excess > 0) {
+      await this.abonoApartamentoService.agregar(params.piso, params.apartamento, excess);
+    }
+    if (amountFromAbono > 0) {
+      await this.abonoApartamentoService.consumir(params.piso, params.apartamento, amountFromAbono);
+    }
+
+    let result: { count: number; ids: string[] };
+    if (params.recibosIds && params.recibosIds.length > 0) {
+      result = await this.updateManyByIds(
+        params.recibosIds,
+        totalToApply,
+        params.paymentId,
+        params.fechaPago,
+        params.numeroComprobante,
+      );
+    } else {
+      const { count, ids } = await this.updateManyByMeses(
+        params.piso,
+        params.apartamento,
+        params.meses!,
+        totalToApply,
+        params.paymentId,
+        params.fechaPago,
+        params.numeroComprobante,
+      );
+      result = { count, ids };
+    }
+    return result;
   }
 
   async updateEstado(id: string, estado: 'pagado'): Promise<ReciboDocument> {

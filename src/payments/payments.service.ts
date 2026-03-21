@@ -123,34 +123,18 @@ export class PaymentsService {
         ? pagoDoc.fechaPago 
         : new Date(pagoDoc.fechaPago);
       
-      // Si el pago tiene recibosIds guardados (de cuando se creó), usarlos
-      // Si no, usar la lógica por meses
-      let ids: string[] = [];
-      if (pagoDoc.recibosPagados && pagoDoc.recibosPagados.length > 0) {
-        // Los recibos ya están asociados, aplicar el pago a esos recibos específicos
-        const recibosIds = pagoDoc.recibosPagados.map((id) => id.toString());
-        const { count, ids: idsActualizados } = await this.administracionService.updateManyByIds(
-          recibosIds,
-          pagoDoc.montoUsd,
-          paymentId,
-          fechaPago,
-          pagoDoc.numeroComprobante,
-        );
-        ids = idsActualizados;
-      } else {
-        // Lógica original por meses
-        const mesesPago = pagoDoc.meses || [];
-        const { count, ids: idsPorMeses, abonosRegistrados } = await this.administracionService.updateManyByMeses(
-          pagoDoc.piso,
-          pagoDoc.apartamento,
-          mesesPago,
-          pagoDoc.montoUsd,
-          paymentId,
-          fechaPago,
-          pagoDoc.numeroComprobante,
-        );
-        ids = idsPorMeses;
-      }
+      const { ids } = await this.administracionService.applyPagoAceptado({
+        piso: pagoDoc.piso,
+        apartamento: pagoDoc.apartamento,
+        recibosIds: pagoDoc.recibosPagados?.length
+          ? pagoDoc.recibosPagados.map((id) => id.toString())
+          : undefined,
+        meses: !pagoDoc.recibosPagados?.length ? (pagoDoc.meses || []) : undefined,
+        montoPago: pagoDoc.montoUsd,
+        paymentId,
+        fechaPago,
+        numeroComprobante: pagoDoc.numeroComprobante,
+      });
       
       if (ids.length > 0) {
         const recibosIds = ids.map((id) => new Types.ObjectId(id));
