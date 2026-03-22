@@ -11,7 +11,7 @@ services:
       NODE_ENV: production
       PORT: 3001
       MONGODB_URI: ${MONGODB_URI}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      REDIS_URL: redis://redis:6379
       FRONTEND_URL: ${FRONTEND_URL}
       JWT_SECRET: ${JWT_SECRET}
       ADMIN_USUARIO: ${ADMIN_USUARIO}
