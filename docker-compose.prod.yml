@@ -21,6 +21,7 @@ services:
     depends_on:
       - mongodb
       - redis
+      - ollama
     networks:
       - condominio_network
 
@@ -54,6 +55,13 @@ services:
       - ollama_data:/root/.ollama
     networks:
       - condominio_network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 
 networks:
   condominio_network:
