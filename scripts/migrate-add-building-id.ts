@@ -1,14 +1,13 @@
 /**
  * Script de migración — Fase 1 Multi-Tenant
  *
- * Asigna buildingId a todos los documentos existentes del edificio "Residencia Sofia".
+ * Asigna buildingId a todos los documentos existentes del edificio principal.
  * Se ejecuta UNA SOLA VEZ antes de activar el modo multi-tenant en producción.
  *
- * Uso: npx ts-node scripts/migrate-add-building-id.ts
+ * Uso: SLUG_EDIFICIO=mi-edificio npx ts-node scripts/migrate-add-building-id.ts
  *
  * Prerrequisitos:
- * 1. El edificio "residencia-sofia" debe existir en la colección buildings
- *    (crearlo manualmente si es necesario con el script create-initial-building.ts)
+ * 1. El edificio debe existir en la colección buildings (variable SLUG_EDIFICIO)
  * 2. MONGODB_URI debe estar en las variables de entorno
  */
 
