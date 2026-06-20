@@ -35,7 +35,10 @@ describe('PaymentsService — aislamiento multi-tenant', () => {
         { provide: getModelToken(Payment.name), useValue: mockPaymentModel },
         { provide: FilesService, useValue: {} },
         { provide: AdministracionService, useValue: {} },
-        { provide: CacheService, useValue: { generateKey: () => 'k', get: () => null, set: () => {} } },
+        {
+          provide: CacheService,
+          useValue: { generateKey: () => 'k', get: () => null, set: () => {} },
+        },
         { provide: OcrService, useValue: {} },
       ],
     }).compile();
@@ -54,7 +57,8 @@ describe('PaymentsService — aislamiento multi-tenant', () => {
   it('findAll con edificio B no debe usar el buildingId de A', async () => {
     await service.findAll({ buildingId: buildingB });
 
-    const query = mockFind.mock.calls[0][0] as Record<string, unknown>;
+    const calls = mockFind.mock.calls as Array<[Record<string, unknown>]>;
+    const query = calls[0]?.[0] ?? {};
     expect(query.buildingId).toEqual(buildingB);
     expect(query.buildingId).not.toEqual(buildingA);
   });
@@ -62,7 +66,8 @@ describe('PaymentsService — aislamiento multi-tenant', () => {
   it('findAll sin buildingId no agrega filtro de tenant (legacy — evitar en prod)', async () => {
     await service.findAll({ estado: 'aceptado' });
 
-    const query = mockFind.mock.calls[0][0] as Record<string, unknown>;
+    const calls = mockFind.mock.calls as Array<[Record<string, unknown>]>;
+    const query = calls[0]?.[0] ?? {};
     expect(query.buildingId).toBeUndefined();
     expect(query.estado).toBe('aceptado');
   });

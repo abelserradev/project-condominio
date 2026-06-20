@@ -6,7 +6,7 @@ import { User, UserDocument } from './schemas/user.schema';
 
 @Injectable()
 export class UserService {
-  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
+  constructor(@InjectModel(User.name) private readonly userModel: Model<UserDocument>) {}
 
   async findByUsuario(usuario: string): Promise<UserDocument | null> {
     return this.userModel.findOne({ usuario }).lean().exec();
@@ -21,9 +21,15 @@ export class UserService {
     return bcrypt.compare(plain, storedHash);
   }
 
-  async updatePassword(usuario: string, nuevaPassword: string): Promise<boolean> {
+  async updatePassword(
+    usuario: string,
+    nuevaPassword: string,
+  ): Promise<boolean> {
     const passwordHash = await bcrypt.hash(nuevaPassword, 10);
-    const result = await this.userModel.updateOne({ usuario }, { passwordHash });
+    const result = await this.userModel.updateOne(
+      { usuario },
+      { passwordHash },
+    );
     return result.modifiedCount > 0;
   }
 
@@ -32,7 +38,9 @@ export class UserService {
     password: string;
     buildingId: Types.ObjectId;
   }): Promise<UserDocument> {
-    const existente = await this.userModel.findOne({ usuario: data.usuario }).lean();
+    const existente = await this.userModel
+      .findOne({ usuario: data.usuario })
+      .lean();
     if (existente) {
       throw new ConflictException(`El usuario "${data.usuario}" ya existe`);
     }
@@ -44,7 +52,7 @@ export class UserService {
       buildingId: data.buildingId,
       isSuperAdmin: false,
     });
-    return doc.toObject() as UserDocument;
+    return doc.toObject();
   }
 
   async ensureSuperAdmin(usuario: string, password: string): Promise<void> {
@@ -63,5 +71,10 @@ export class UserService {
       rol: 'admin',
       isSuperAdmin: true,
     });
+  }
+
+  async existeSuperAdmin(): Promise<boolean> {
+    const doc = await this.userModel.findOne({ isSuperAdmin: true }).lean().exec();
+    return doc !== null;
   }
 }

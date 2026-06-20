@@ -44,7 +44,10 @@ export class Payment {
   @Prop({ type: [Types.ObjectId], default: [] })
   recibosPagados?: Types.ObjectId[];
 
-  @Prop({ default: 'pendiente', enum: ['pendiente', 'aceptado', 'pagado', 'rechazado'] })
+  @Prop({
+    default: 'pendiente',
+    enum: ['pendiente', 'aceptado', 'pagado', 'rechazado'],
+  })
   estado: string;
 }
 

@@ -30,7 +30,10 @@ export class Building {
   @Prop({ default: true })
   activo: boolean;
 
-  @Prop({ default: 'trial', enum: ['trial', 'activo', 'vencido', 'suspendido'] })
+  @Prop({
+    default: 'trial',
+    enum: ['trial', 'activo', 'vencido', 'suspendido'],
+  })
   estadoSuscripcion: string;
 
   @Prop({ type: Date })

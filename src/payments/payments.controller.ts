@@ -21,10 +21,16 @@ import { SubscriptionGuard } from '../common/guards/subscription.guard';
 import { PaymentsService } from './payments.service';
 import { Types } from 'mongoose';
 import { mapPaymentToResponse } from '../common/utils/serialize-mongoose.util';
-import { validateEstado, sanitizeBanco, sanitizeComprobante } from '../common/utils/security.util';
-import { validateFileMimeType, validateFileSize } from '../common/utils/file-validation.util';
+import {
+  validateEstado,
+  sanitizeBanco,
+  sanitizeComprobante,
+} from '../common/utils/security.util';
+import {
+  validateFileMimeType,
+  validateFileSize,
+} from '../common/utils/file-validation.util';
 import { BuildingDocument } from '../buildings/schemas/building.schema';
-
 
 type RequestWithBuilding = { building: BuildingDocument };
 
@@ -34,7 +40,9 @@ export class PaymentsController {
 
   @Post()
   @UseGuards(CsrfGuard, BuildingContextGuard)
-  @UseInterceptors(FileInterceptor('comprobante', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  @UseInterceptors(
+    FileInterceptor('comprobante', { limits: { fileSize: 5 * 1024 * 1024 } }),
+  )
   async create(
     @Req() req: RequestWithBuilding,
     @UploadedFile() file: Express.Multer.File,
@@ -59,11 +67,13 @@ export class PaymentsController {
       throw new BadRequestException('piso y apartamento inválidos');
     let meses: number[];
     try {
-      const parsed = JSON.parse(mesesRaw ?? '[]');
+      const parsed: unknown = JSON.parse(mesesRaw ?? '[]');
       if (!Array.isArray(parsed)) {
         throw new BadRequestException('meses debe ser un array');
       }
-      meses = parsed.filter((m: unknown) => typeof m === 'number' && m >= 1 && m <= 12);
+      meses = parsed.filter(
+        (m): m is number => typeof m === 'number' && m >= 1 && m <= 12,
+      );
       if (meses.length === 0) {
         throw new BadRequestException('Se requiere al menos un mes válido');
       }
@@ -72,26 +82,37 @@ export class PaymentsController {
       throw new BadRequestException('meses inválido');
     }
     const monto = parseFloat(montoUsd ?? '');
-    if (Number.isNaN(monto) || monto <= 0) throw new BadRequestException('montoUsd inválido');
-    if (!fechaPago?.trim()) throw new BadRequestException('fechaPago requerido');
+    if (Number.isNaN(monto) || monto <= 0)
+      throw new BadRequestException('montoUsd inválido');
+    if (!fechaPago?.trim())
+      throw new BadRequestException('fechaPago requerido');
     const bancoSanitizado = sanitizeBanco(banco);
     const numeroComprobanteSanitizado = sanitizeComprobante(numeroComprobante);
     const montoBsNum =
       montoBs != null && montoBs !== '' ? parseFloat(montoBs) : undefined;
-    if (montoBsNum !== undefined && (Number.isNaN(montoBsNum) || montoBsNum < 0)) {
+    if (
+      montoBsNum !== undefined &&
+      (Number.isNaN(montoBsNum) || montoBsNum < 0)
+    ) {
       throw new BadRequestException('montoBs inválido');
     }
     const tasaBcvNum =
       tasaBcv != null && tasaBcv !== '' ? parseFloat(tasaBcv) : undefined;
-    if (tasaBcvNum !== undefined && (Number.isNaN(tasaBcvNum) || tasaBcvNum < 0)) {
+    if (
+      tasaBcvNum !== undefined &&
+      (Number.isNaN(tasaBcvNum) || tasaBcvNum < 0)
+    ) {
       throw new BadRequestException('tasaBcv inválida');
     }
     let recibosIds: string[] | undefined;
     if (recibosIdsRaw) {
       try {
-        const parsed = JSON.parse(recibosIdsRaw);
+        const parsed: unknown = JSON.parse(recibosIdsRaw);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          recibosIds = parsed.filter((id: unknown) => typeof id === 'string' && Types.ObjectId.isValid(id));
+          recibosIds = parsed.filter(
+            (id): id is string =>
+              typeof id === 'string' && Types.ObjectId.isValid(id),
+          );
           if (recibosIds.length === 0) {
             recibosIds = undefined;
           }
@@ -101,7 +122,7 @@ export class PaymentsController {
       }
     }
     const payment = await this.paymentsService.create({
-      buildingId: req.building._id as Types.ObjectId,
+      buildingId: req.building._id,
       piso: p,
       apartamento: a,
       meses,
@@ -128,16 +149,21 @@ export class PaymentsController {
     @Query('estado') estado: string,
   ) {
     const p = piso != null && piso !== '' ? parseInt(piso, 10) : undefined;
-    const a = apartamento != null && apartamento !== '' ? parseInt(apartamento, 10) : undefined;
+    const a =
+      apartamento != null && apartamento !== ''
+        ? parseInt(apartamento, 10)
+        : undefined;
     const allowedEstados = ['pendiente', 'aceptado', 'rechazado'];
     const estadoValidado = validateEstado(estado, allowedEstados);
     const list = await this.paymentsService.findAll({
-      buildingId: req.building._id as Types.ObjectId,
+      buildingId: req.building._id,
       piso: p != null && !Number.isNaN(p) ? p : undefined,
       apartamento: a != null && !Number.isNaN(a) ? a : undefined,
       estado: estadoValidado,
     });
-    return list.map((x) => mapPaymentToResponse(x as unknown as Record<string, unknown>));
+    return list.map((x) =>
+      mapPaymentToResponse(x as unknown as Record<string, unknown>),
+    );
   }
 
   // Endpoint público para residentes — requiere piso y apartamento obligatorios
@@ -154,11 +180,13 @@ export class PaymentsController {
       throw new BadRequestException('piso y apartamento son requeridos');
     }
     const list = await this.paymentsService.findAll({
-      buildingId: req.building._id as Types.ObjectId,
+      buildingId: req.building._id,
       piso: p,
       apartamento: a,
     });
-    return list.map((x) => mapPaymentToResponse(x as unknown as Record<string, unknown>));
+    return list.map((x) =>
+      mapPaymentToResponse(x as unknown as Record<string, unknown>),
+    );
   }
 
   @Patch(':id/aceptar')
@@ -170,7 +198,7 @@ export class PaymentsController {
     const payment = await this.paymentsService.updateEstado(
       id,
       'aceptado',
-      req.building._id as Types.ObjectId,
+      req.building._id,
     );
     return mapPaymentToResponse(payment as unknown as Record<string, unknown>);
   }
@@ -184,7 +212,7 @@ export class PaymentsController {
     const payment = await this.paymentsService.updateEstado(
       id,
       'rechazado',
-      req.building._id as Types.ObjectId,
+      req.building._id,
     );
     return mapPaymentToResponse(payment as unknown as Record<string, unknown>);
   }
@@ -198,14 +226,10 @@ export class PaymentsController {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('ID inválido');
     }
-    const payment = await this.paymentsService.findById(
-      id,
-      req.building._id as Types.ObjectId,
-    );
+    const payment = await this.paymentsService.findById(id, req.building._id);
     if (!payment) {
       throw new NotFoundException('Pago no encontrado');
     }
     return mapPaymentToResponse(payment as unknown as Record<string, unknown>);
   }
 }
-

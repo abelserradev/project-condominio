@@ -1,4 +1,12 @@
-import { Body, Controller, Post, Req, UnauthorizedException, UseGuards, Logger } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Post,
+  Req,
+  UnauthorizedException,
+  UseGuards,
+  Logger,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { CsrfGuard } from '../common/guards/csrf.guard';
@@ -34,7 +42,9 @@ export class AuthController {
       this.logger.log(`Login exitoso: ${body.usuario.trim()}`);
       return result;
     } catch (e) {
-      this.logger.warn(`Login fallido: ${body.usuario?.trim() ?? 'desconocido'}`);
+      this.logger.warn(
+        `Login fallido: ${body.usuario?.trim() ?? 'desconocido'}`,
+      );
       throw e;
     }
   }

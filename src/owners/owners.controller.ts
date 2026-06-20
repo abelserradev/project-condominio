@@ -12,7 +12,6 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { Types } from 'mongoose';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { BuildingContextGuard } from '../common/guards/building-context.guard';
 import { SubscriptionGuard } from '../common/guards/subscription.guard';
@@ -34,9 +33,11 @@ type AuthBuildingRequest = {
 
 function assertAdminDelEdificio(req: AuthBuildingRequest): void {
   if (req.user.rol !== 'admin') {
-    throw new ForbiddenException('Solo administradores del edificio pueden gestionar propietarios');
+    throw new ForbiddenException(
+      'Solo administradores del edificio pueden gestionar propietarios',
+    );
   }
-  const bid = req.building._id as Types.ObjectId;
+  const bid = req.building._id;
   if (req.user.buildingId !== bid.toString()) {
     throw new ForbiddenException('No perteneces a este edificio');
   }
@@ -60,7 +61,7 @@ export class OwnersController {
     @Query('incluirInactivos') incluirInactivos?: string,
   ) {
     assertAdminDelEdificio(req);
-    const buildingId = req.building._id as Types.ObjectId;
+    const buildingId = req.building._id;
     const list = await this.ownersService.findAll(
       buildingId,
       incluirInactivos === 'true',
@@ -72,17 +73,20 @@ export class OwnersController {
   @UseGuards(JwtAuthGuard, BuildingContextGuard, SubscriptionGuard)
   async create(@Req() req: AuthBuildingRequest, @Body() dto: CreateOwnerDto) {
     assertAdminDelEdificio(req);
-    const created = await this.ownersService.create(req.building._id as Types.ObjectId, dto);
+    const created = await this.ownersService.create(req.building._id, dto);
     return mapOwnerToResponse(created);
   }
 
   @Patch('me/password')
   @UseGuards(JwtAuthGuard, BuildingContextGuard)
-  async changeMyPassword(@Req() req: AuthBuildingRequest, @Body() dto: ChangePasswordDto) {
+  async changeMyPassword(
+    @Req() req: AuthBuildingRequest,
+    @Body() dto: ChangePasswordDto,
+  ) {
     assertPropietario(req);
     await this.ownersService.changePassword(
       req.user.sub,
-      req.building._id as Types.ObjectId,
+      req.building._id,
       dto.contraseñaActual,
       dto.contraseñaNueva,
     );
@@ -93,7 +97,7 @@ export class OwnersController {
   @UseGuards(JwtAuthGuard, BuildingContextGuard, SubscriptionGuard)
   async findOne(@Req() req: AuthBuildingRequest, @Param('id') id: string) {
     assertAdminDelEdificio(req);
-    const owner = await this.ownersService.findById(id, req.building._id as Types.ObjectId);
+    const owner = await this.ownersService.findById(id, req.building._id);
     if (!owner) throw new NotFoundException('Propietario no encontrado');
     return mapOwnerToResponse(owner);
   }
@@ -106,11 +110,7 @@ export class OwnersController {
     @Body() dto: UpdateOwnerDto,
   ) {
     assertAdminDelEdificio(req);
-    const updated = await this.ownersService.update(
-      id,
-      req.building._id as Types.ObjectId,
-      dto,
-    );
+    const updated = await this.ownersService.update(id, req.building._id, dto);
     return mapOwnerToResponse(updated);
   }
 
@@ -118,7 +118,7 @@ export class OwnersController {
   @UseGuards(JwtAuthGuard, BuildingContextGuard, SubscriptionGuard)
   async deactivate(@Req() req: AuthBuildingRequest, @Param('id') id: string) {
     assertAdminDelEdificio(req);
-    const updated = await this.ownersService.deactivate(id, req.building._id as Types.ObjectId);
+    const updated = await this.ownersService.deactivate(id, req.building._id);
     return mapOwnerToResponse(updated);
   }
 }

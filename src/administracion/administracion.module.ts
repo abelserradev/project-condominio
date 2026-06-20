@@ -4,7 +4,10 @@ import { AdministracionController } from './administracion.controller';
 import { AdministracionService } from './administracion.service';
 import { AbonoApartamentoService } from './abono-apartamento.service';
 import { Recibo, ReciboSchema } from './schemas/recibo.schema';
-import { AbonoApartamento, AbonoApartamentoSchema } from './schemas/abono-apartamento.schema';
+import {
+  AbonoApartamento,
+  AbonoApartamentoSchema,
+} from './schemas/abono-apartamento.schema';
 import { FilesModule } from '../files/files.module';
 import { AuthModule } from '../auth/auth.module';
 import { CommonModule } from '../common/common.module';

@@ -1,11 +1,26 @@
-import { Injectable, ConflictException, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  BadRequestException,
+  NotFoundException,
+  Logger,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Building, BuildingDocument } from './schemas/building.schema';
 import { buildPortalUrl } from './utils/portal-url.util';
 
 const SLUGS_RESERVADOS = [
-  'super', 'admin', 'api', 'www', 'mail', 'app', 'static', 'assets', 'login', 'registro',
+  'super',
+  'admin',
+  'api',
+  'www',
+  'mail',
+  'app',
+  'static',
+  'assets',
+  'login',
+  'registro',
 ];
 
 @Injectable()
@@ -17,7 +32,10 @@ export class BuildingsService {
   ) {}
 
   async findBySlug(slug: string): Promise<BuildingDocument | null> {
-    return this.buildingModel.findOne({ slug: slug.toLowerCase().trim() }).lean().exec();
+    return this.buildingModel
+      .findOne({ slug: slug.toLowerCase().trim() })
+      .lean()
+      .exec();
   }
 
   async findById(id: string): Promise<BuildingDocument | null> {
@@ -43,11 +61,16 @@ export class BuildingsService {
     const slugNorm = data.slug.toLowerCase().trim();
 
     if (SLUGS_RESERVADOS.includes(slugNorm)) {
-      throw new BadRequestException(`El subdominio "${slugNorm}" está reservado y no puede usarse`);
+      throw new BadRequestException(
+        `El subdominio "${slugNorm}" está reservado y no puede usarse`,
+      );
     }
 
-    const existente = await this.buildingModel.findOne({ slug: slugNorm }).lean();
-    if (existente) throw new ConflictException('Este subdominio ya está en uso');
+    const existente = await this.buildingModel
+      .findOne({ slug: slugNorm })
+      .lean();
+    if (existente)
+      throw new ConflictException('Este subdominio ya está en uso');
 
     const suscripcionHasta = new Date();
     suscripcionHasta.setDate(suscripcionHasta.getDate() + 14);
@@ -60,7 +83,7 @@ export class BuildingsService {
       suscripcionHasta,
     });
 
-    return doc.toObject() as BuildingDocument;
+    return doc.toObject();
   }
 
   /** Respuesta estándar tras registrar o aprovisionar un tenant nuevo */
@@ -75,8 +98,9 @@ export class BuildingsService {
       slug: building.slug,
       nombre: building.nombre,
       portalUrl: buildPortalUrl(building.slug),
-      trialHasta: building.suscripcionHasta?.toISOString() ?? new Date().toISOString(),
-      buildingId: (building._id as Types.ObjectId).toString(),
+      trialHasta:
+        building.suscripcionHasta?.toISOString() ?? new Date().toISOString(),
+      buildingId: building._id.toString(),
     };
   }
 
@@ -97,59 +121,74 @@ export class BuildingsService {
     const building = await this.buildingModel.findById(buildingId).exec();
     if (!building) throw new NotFoundException('Edificio no encontrado');
 
-    const base = building.suscripcionHasta && building.suscripcionHasta > new Date()
-      ? building.suscripcionHasta
-      : new Date();
+    const base =
+      building.suscripcionHasta && building.suscripcionHasta > new Date()
+        ? building.suscripcionHasta
+        : new Date();
 
     const nuevaFecha = new Date(base);
     nuevaFecha.setDate(nuevaFecha.getDate() + diasAgregados);
 
-    const updated = await this.buildingModel.findByIdAndUpdate(
-      buildingId,
-      {
-        $set: { estadoSuscripcion: 'activo', suscripcionHasta: nuevaFecha },
-        $push: {
-          historialRenovaciones: {
-            fecha: new Date(),
-            renovadoPor,
-            diasAgregados,
-            nota,
+    const updated = await this.buildingModel
+      .findByIdAndUpdate(
+        buildingId,
+        {
+          $set: { estadoSuscripcion: 'activo', suscripcionHasta: nuevaFecha },
+          $push: {
+            historialRenovaciones: {
+              fecha: new Date(),
+              renovadoPor,
+              diasAgregados,
+              nota,
+            },
           },
         },
-      },
-      { new: true },
-    ).lean().exec();
+        { new: true },
+      )
+      .lean()
+      .exec();
 
     return updated as BuildingDocument;
   }
 
   async suspender(buildingId: string): Promise<BuildingDocument> {
-    const updated = await this.buildingModel.findByIdAndUpdate(
-      buildingId,
-      { $set: { estadoSuscripcion: 'suspendido', activo: false } },
-      { new: true },
-    ).lean().exec();
+    const updated = await this.buildingModel
+      .findByIdAndUpdate(
+        buildingId,
+        { $set: { estadoSuscripcion: 'suspendido', activo: false } },
+        { new: true },
+      )
+      .lean()
+      .exec();
     if (!updated) throw new NotFoundException('Edificio no encontrado');
-    return updated as BuildingDocument;
+    return updated;
   }
 
   // Marcar como vencido — se llama en background cuando expira el período de gracia
   // TODO: Mover a un cron job cuando el volumen de edificios lo justifique
   async marcarVencido(buildingId: Types.ObjectId): Promise<void> {
-    await this.buildingModel.updateOne(
-      { _id: buildingId, estadoSuscripcion: { $ne: 'suspendido' } },
-      { $set: { estadoSuscripcion: 'vencido' } },
-    ).exec();
+    await this.buildingModel
+      .updateOne(
+        { _id: buildingId, estadoSuscripcion: { $ne: 'suspendido' } },
+        { $set: { estadoSuscripcion: 'vencido' } },
+      )
+      .exec();
   }
 
-  async updateDatosContactoPago(buildingId: string, datosContactoPago: string): Promise<BuildingDocument> {
-    const updated = await this.buildingModel.findByIdAndUpdate(
-      buildingId,
-      { $set: { datosContactoPago } },
-      { new: true },
-    ).lean().exec();
+  async updateDatosContactoPago(
+    buildingId: string,
+    datosContactoPago: string,
+  ): Promise<BuildingDocument> {
+    const updated = await this.buildingModel
+      .findByIdAndUpdate(
+        buildingId,
+        { $set: { datosContactoPago } },
+        { new: true },
+      )
+      .lean()
+      .exec();
     if (!updated) throw new NotFoundException('Edificio no encontrado');
-    return updated as BuildingDocument;
+    return updated;
   }
 
   // Info de suscripción para el admin del edificio (banner + modal de pago)

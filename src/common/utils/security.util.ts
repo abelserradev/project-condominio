@@ -5,13 +5,18 @@ import validator from 'validator';
  * Valida que un estado esté en la lista de valores permitidos
  * Previene inyección NoSQL mediante operadores como $ne, $gt, etc.
  */
-export function validateEstado(estado: string | undefined, allowedEstados: string[]): string | undefined {
+export function validateEstado(
+  estado: string | undefined,
+  allowedEstados: string[],
+): string | undefined {
   if (!estado || estado.trim() === '') {
     return undefined;
   }
   const trimmedEstado = estado.trim();
   if (!allowedEstados.includes(trimmedEstado)) {
-    throw new BadRequestException(`Estado inválido. Valores permitidos: ${allowedEstados.join(', ')}`);
+    throw new BadRequestException(
+      `Estado inválido. Valores permitidos: ${allowedEstados.join(', ')}`,
+    );
   }
   return trimmedEstado;
 }
@@ -19,13 +24,18 @@ export function validateEstado(estado: string | undefined, allowedEstados: strin
 /**
  * Sanitiza un string eliminando caracteres peligrosos y limitando longitud
  */
-export function sanitizeString(input: string | undefined, maxLength: number = 500): string {
+export function sanitizeString(
+  input: string | undefined,
+  maxLength: number = 500,
+): string {
   if (!input) {
     return '';
   }
   const trimmed = input.trim();
   if (trimmed.length > maxLength) {
-    throw new BadRequestException(`El campo excede la longitud máxima de ${maxLength} caracteres`);
+    throw new BadRequestException(
+      `El campo excede la longitud máxima de ${maxLength} caracteres`,
+    );
   }
   // Escapar caracteres especiales que podrían usarse en inyección
   return validator.escape(trimmed);
@@ -41,7 +51,9 @@ export function sanitizeComprobante(input: string | undefined): string {
   const sanitized = sanitizeString(input, 100);
   // Validar que solo contenga caracteres alfanuméricos y algunos caracteres especiales
   if (!validator.isAlphanumeric(sanitized.replace(/[-_]/g, ''))) {
-    throw new BadRequestException('Número de comprobante contiene caracteres inválidos');
+    throw new BadRequestException(
+      'Número de comprobante contiene caracteres inválidos',
+    );
   }
   return sanitized;
 }
@@ -55,8 +67,10 @@ export function sanitizeBanco(input: string | undefined): string {
   }
   const sanitized = sanitizeString(input, 100);
   // Validar que solo contenga letras, espacios y algunos caracteres especiales
-  if (!validator.matches(sanitized, /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s\-\.]+$/)) {
-    throw new BadRequestException('Nombre de banco contiene caracteres inválidos');
+  if (!validator.matches(sanitized, /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s\-.]+$/)) {
+    throw new BadRequestException(
+      'Nombre de banco contiene caracteres inválidos',
+    );
   }
   return sanitized;
 }

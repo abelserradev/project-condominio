@@ -5,6 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { UserService } from '../../user/user.service';
+import { RequestWithJwtUser } from '../types/http-request.types';
 
 /**
  * El JWT puede decir isSuperAdmin, pero la fuente de verdad es la BD en cada request.
@@ -15,16 +16,20 @@ export class SuperAdminGuard implements CanActivate {
   constructor(private readonly userService: UserService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const req = context.switchToHttp().getRequest();
+    const req = context.switchToHttp().getRequest<RequestWithJwtUser>();
     const tokenUser = req.user;
 
     if (!tokenUser?.sub) {
-      throw new ForbiddenException('Acceso restringido a administradores de la plataforma');
+      throw new ForbiddenException(
+        'Acceso restringido a administradores de la plataforma',
+      );
     }
 
     const dbUser = await this.userService.findById(tokenUser.sub);
     if (!dbUser?.isSuperAdmin) {
-      throw new ForbiddenException('Acceso restringido a administradores de la plataforma');
+      throw new ForbiddenException(
+        'Acceso restringido a administradores de la plataforma',
+      );
     }
 
     req.user.isSuperAdmin = true;

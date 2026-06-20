@@ -6,17 +6,21 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { BuildingsService } from '../../buildings/buildings.service';
+import { RequestWithMutableBuilding } from '../types/http-request.types';
 
 @Injectable()
 export class BuildingContextGuard implements CanActivate {
   constructor(private readonly buildingsService: BuildingsService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const req = context.switchToHttp().getRequest();
-    const slug: string | undefined = req.headers['x-building-slug'];
+    const req = context.switchToHttp().getRequest<RequestWithMutableBuilding>();
+    const slugHeader = req.headers['x-building-slug'];
+    const slug = typeof slugHeader === 'string' ? slugHeader : undefined;
 
     if (!slug || slug.trim() === '') {
-      throw new BadRequestException('Edificio no especificado. Incluye el header x-building-slug.');
+      throw new BadRequestException(
+        'Edificio no especificado. Incluye el header x-building-slug.',
+      );
     }
 
     const building = await this.buildingsService.findBySlug(slug.trim());

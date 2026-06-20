@@ -38,15 +38,20 @@ export class AuthService {
       building = await this.buildingsService.findBySlug(buildingSlug);
     }
 
-    const buildingId = building ? (building._id as Types.ObjectId) : undefined;
+    const buildingId = building ? building._id : undefined;
 
     // 1. Intentar autenticar como admin (usuario/contraseña o email/contraseña)
     const user = await this.userService.findByUsuario(usuario.trim());
 
     if (user) {
-      const valid = await this.userService.validatePassword(contraseña, user.passwordHash);
+      const valid = await this.userService.validatePassword(
+        contraseña,
+        user.passwordHash,
+      );
       if (!valid) {
-        this.logger.warn(`Login fallido (contraseña inválida) para: ${usuario}`);
+        this.logger.warn(
+          `Login fallido (contraseña inválida) para: ${usuario}`,
+        );
         throw new UnauthorizedException('Credenciales inválidas');
       }
 
@@ -65,7 +70,9 @@ export class AuthService {
         ...(building && { edificio: building.nombre }),
       };
 
-      this.logger.log(`Login exitoso para admin: ${usuario} | edificio: ${building?.nombre ?? 'no especificado'}`);
+      this.logger.log(
+        `Login exitoso para admin: ${usuario} | edificio: ${building?.nombre ?? 'no especificado'}`,
+      );
       return {
         access_token: this.jwtService.sign(payload),
         rol: payload.rol as string,
@@ -76,7 +83,10 @@ export class AuthService {
 
     // 2. Intentar autenticar como propietario (email + buildingId)
     if (buildingId) {
-      const owner = await this.ownersService.findByEmail(usuario.trim(), buildingId);
+      const owner = await this.ownersService.findByEmail(
+        usuario.trim(),
+        buildingId,
+      );
 
       if (owner) {
         const bcrypt = await import('bcrypt');
@@ -98,7 +108,9 @@ export class AuthService {
           idUnico: owner.idUnico,
         };
 
-        this.logger.log(`Login exitoso para propietario: ${usuario} | edificio: ${building!.nombre}`);
+        this.logger.log(
+          `Login exitoso para propietario: ${usuario} | edificio: ${building!.nombre}`,
+        );
         return {
           access_token: this.jwtService.sign(payload),
           rol: owner.rol,

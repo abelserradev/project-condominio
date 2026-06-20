@@ -12,7 +12,18 @@ import { UserModule } from '../user/user.module';
 @Module({
   imports: [forwardRef(() => BuildingsModule), UserModule],
   controllers: [CsrfController],
-  providers: [CacheService, BuildingContextGuard, SubscriptionGuard, SuperAdminGuard],
-  exports: [CacheService, BuildingContextGuard, SubscriptionGuard, SuperAdminGuard, BuildingsModule],
+  providers: [
+    CacheService,
+    BuildingContextGuard,
+    SubscriptionGuard,
+    SuperAdminGuard,
+  ],
+  exports: [
+    CacheService,
+    BuildingContextGuard,
+    SubscriptionGuard,
+    SuperAdminGuard,
+    BuildingsModule,
+  ],
 })
 export class CommonModule {}

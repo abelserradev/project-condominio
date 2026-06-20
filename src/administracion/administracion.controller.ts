@@ -20,9 +20,19 @@ import { AdministracionService } from './administracion.service';
 import { AbonoApartamentoService } from './abono-apartamento.service';
 import { Types } from 'mongoose';
 import { mapReciboToResponse } from '../common/utils/serialize-mongoose.util';
-import { validateEstado, sanitizeTipoDeuda } from '../common/utils/security.util';
-import { validateFileMimeType, validateFileSize } from '../common/utils/file-validation.util';
+import {
+  validateEstado,
+  sanitizeTipoDeuda,
+} from '../common/utils/security.util';
+import {
+  validateFileMimeType,
+  validateFileSize,
+} from '../common/utils/file-validation.util';
 import { BuildingDocument } from '../buildings/schemas/building.schema';
+import {
+  parseCreateReciboFormBody,
+  type CreateReciboFormFields,
+} from './utils/parse-create-recibo-form.util';
 
 type RequestWithBuilding = { building: BuildingDocument };
 
@@ -40,12 +50,20 @@ export class AdministracionController {
     @Query('piso') piso: string,
     @Query('apartamento') apartamento: string,
   ) {
-    const p = piso != null && piso !== '' ? parseInt(piso, 10) : undefined;
-    const a = apartamento != null && apartamento !== '' ? parseInt(apartamento, 10) : undefined;
+    const p =
+      piso != null && piso !== '' ? Number.parseInt(piso, 10) : undefined;
+    const a =
+      apartamento != null && apartamento !== ''
+        ? Number.parseInt(apartamento, 10)
+        : undefined;
     if (p == null || a == null || Number.isNaN(p) || Number.isNaN(a)) {
       throw new BadRequestException('piso y apartamento requeridos');
     }
-    const monto = await this.abonoApartamentoService.getMonto(p, a, req.building._id as Types.ObjectId);
+    const monto = await this.abonoApartamentoService.getMonto(
+      p,
+      a,
+      req.building._id,
+    );
     return { monto };
   }
 
@@ -56,50 +74,69 @@ export class AdministracionController {
     @Query('piso') piso: string,
     @Query('apartamento') apartamento: string,
   ) {
-    const p = piso != null && piso !== '' ? parseInt(piso, 10) : undefined;
-    const a = apartamento != null && apartamento !== '' ? parseInt(apartamento, 10) : undefined;
+    const p =
+      piso != null && piso !== '' ? Number.parseInt(piso, 10) : undefined;
+    const a =
+      apartamento != null && apartamento !== ''
+        ? Number.parseInt(apartamento, 10)
+        : undefined;
     if (p == null || a == null || Number.isNaN(p) || Number.isNaN(a)) {
       throw new BadRequestException('piso y apartamento requeridos');
     }
     const list = await this.administracionService.findPendientesConSaldo({
-      buildingId: req.building._id as Types.ObjectId,
+      buildingId: req.building._id,
       piso: p,
       apartamento: a,
     });
-    return list.map((x) => mapReciboToResponse(x as unknown as Record<string, unknown>));
+    return list.map((x) =>
+      mapReciboToResponse(x as unknown as Record<string, unknown>),
+    );
   }
 
   @Post()
   @UseGuards(JwtAuthGuard, BuildingContextGuard, SubscriptionGuard)
-  @UseInterceptors(FileInterceptor('comprobante', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  @UseInterceptors(
+    FileInterceptor('comprobante', { limits: { fileSize: 5 * 1024 * 1024 } }),
+  )
   async create(
     @Req() req: RequestWithBuilding,
     @UploadedFile() file: Express.Multer.File,
-    @Body('piso') piso: string,
-    @Body('apartamento') apartamento: string,
-    @Body('meses') mesesRaw: string,
-    @Body('montoUsd') montoUsd: string,
-    @Body('tipoDeuda') tipoDeuda: string,
-    @Body('fechaReportada') fechaReportada: string,
+    @Body() rawBody: unknown,
   ) {
+    let formBody: CreateReciboFormFields;
+    try {
+      formBody = parseCreateReciboFormBody(rawBody);
+    } catch {
+      throw new BadRequestException('Datos del recibo inválidos');
+    }
+    const {
+      piso,
+      apartamento,
+      meses: mesesRaw,
+      montoUsd,
+      tipoDeuda,
+      fechaReportada,
+    } = formBody;
     if (!file) {
       throw new BadRequestException('Se requiere la factura');
     }
     const MAX_SIZE_BYTES = 5 * 1024 * 1024;
     validateFileSize(file.buffer, MAX_SIZE_BYTES);
     const validatedMimeType = validateFileMimeType(file.buffer, file.mimetype);
-    const p = parseInt(piso ?? '', 10);
-    const a = parseInt(apartamento ?? '', 10);
+    const p = Number.parseInt(piso ?? '', 10);
+    const a = Number.parseInt(apartamento ?? '', 10);
     if (Number.isNaN(p) || Number.isNaN(a)) {
       throw new BadRequestException('piso y apartamento inválidos');
     }
     let meses: number[];
     try {
-      const parsed = JSON.parse(mesesRaw ?? '[]');
+      const parsed: unknown = JSON.parse(mesesRaw ?? '[]');
       if (!Array.isArray(parsed)) {
         throw new BadRequestException('meses debe ser un array');
       }
-      meses = parsed.filter((m: unknown) => typeof m === 'number' && m >= 1 && m <= 12);
+      meses = parsed.filter(
+        (m): m is number => typeof m === 'number' && m >= 1 && m <= 12,
+      );
       if (meses.length === 0) {
         throw new BadRequestException('Se requiere al menos un mes válido');
       }
@@ -107,7 +144,7 @@ export class AdministracionController {
       if (e instanceof BadRequestException) throw e;
       throw new BadRequestException('meses inválido');
     }
-    const monto = parseFloat(montoUsd ?? '');
+    const monto = Number.parseFloat(montoUsd ?? '');
     if (Number.isNaN(monto) || monto <= 0) {
       throw new BadRequestException('montoUsd inválido');
     }
@@ -116,7 +153,7 @@ export class AdministracionController {
     }
     const tipoDeudaSanitizado = sanitizeTipoDeuda(tipoDeuda);
     const recibo = await this.administracionService.create({
-      buildingId: req.building._id as Types.ObjectId,
+      buildingId: req.building._id,
       piso: p,
       apartamento: a,
       meses,
@@ -138,17 +175,23 @@ export class AdministracionController {
     @Query('apartamento') apartamento: string,
     @Query('estado') estado: string,
   ) {
-    const p = piso != null && piso !== '' ? parseInt(piso, 10) : undefined;
-    const a = apartamento != null && apartamento !== '' ? parseInt(apartamento, 10) : undefined;
+    const p =
+      piso != null && piso !== '' ? Number.parseInt(piso, 10) : undefined;
+    const a =
+      apartamento != null && apartamento !== ''
+        ? Number.parseInt(apartamento, 10)
+        : undefined;
     const allowedEstados = ['pendiente', 'pagado'];
     const estadoValidado = validateEstado(estado, allowedEstados);
     const list = await this.administracionService.findAll({
-      buildingId: req.building._id as Types.ObjectId,
+      buildingId: req.building._id,
       piso: p != null && !Number.isNaN(p) ? p : undefined,
       apartamento: a != null && !Number.isNaN(a) ? a : undefined,
       estado: estadoValidado,
     });
-    return list.map((x) => mapReciboToResponse(x as unknown as Record<string, unknown>));
+    return list.map((x) =>
+      mapReciboToResponse(x as unknown as Record<string, unknown>),
+    );
   }
 
   @Get(':id')
@@ -162,7 +205,7 @@ export class AdministracionController {
     }
     const recibo = await this.administracionService.findById(
       id,
-      req.building._id as Types.ObjectId,
+      req.building._id,
     );
     if (!recibo) {
       throw new NotFoundException('Recibo no encontrado');

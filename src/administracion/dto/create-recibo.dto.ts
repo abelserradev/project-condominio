@@ -1,4 +1,14 @@
-import { IsNotEmpty, IsNumber, IsArray, IsString, Min, Max, ArrayMinSize, IsInt, IsDateString } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsArray,
+  IsString,
+  Min,
+  Max,
+  ArrayMinSize,
+  IsInt,
+  IsDateString,
+} from 'class-validator';
 
 export class CreateReciboDto {
   @IsNotEmpty({ message: 'El piso es requerido' })

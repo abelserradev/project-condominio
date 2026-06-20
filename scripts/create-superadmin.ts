@@ -7,7 +7,9 @@ function requireEnv(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) {
     console.error(`Error: falta la variable de entorno ${name}.`);
-    console.error('  Variables requeridas: SUPERADMIN_BOOTSTRAP_TOKEN, SUPERADMIN_USUARIO, SUPERADMIN_PASSWORD');
+    console.error(
+      '  Variables requeridas: SUPERADMIN_BOOTSTRAP_TOKEN, SUPERADMIN_USUARIO, SUPERADMIN_PASSWORD',
+    );
     process.exit(1);
   }
   return value;
@@ -15,10 +17,16 @@ function requireEnv(name: string): string {
 
 function assertPasswordStrength(password: string): void {
   if (password.length < 8) {
-    console.error('Error: SUPERADMIN_PASSWORD debe tener al menos 8 caracteres.');
+    console.error(
+      'Error: SUPERADMIN_PASSWORD debe tener al menos 8 caracteres.',
+    );
     process.exit(1);
   }
-  if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+  if (
+    !/[a-z]/.test(password) ||
+    !/[A-Z]/.test(password) ||
+    !/\d/.test(password)
+  ) {
     console.error(
       'Error: SUPERADMIN_PASSWORD debe incluir mayúscula, minúscula y número.',
     );
@@ -29,7 +37,9 @@ function assertPasswordStrength(password: string): void {
 function requireBootstrapToken(): void {
   const token = requireEnv('SUPERADMIN_BOOTSTRAP_TOKEN');
   if (token.length < 32) {
-    console.error('Error: SUPERADMIN_BOOTSTRAP_TOKEN debe tener al menos 32 caracteres.');
+    console.error(
+      'Error: SUPERADMIN_BOOTSTRAP_TOKEN debe tener al menos 32 caracteres.',
+    );
     console.error('  Genera uno con: openssl rand -base64 32');
     process.exit(1);
   }

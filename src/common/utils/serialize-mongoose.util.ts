@@ -5,9 +5,15 @@
 
 function toObjectIdString(value: unknown): string | null {
   if (value == null) return null;
-  const obj = value as { toString?: () => string };
-  if (typeof obj.toString === 'function') return obj.toString();
-  return String(value);
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object' && value !== null && 'toString' in value) {
+    const obj = value as { toString: () => string };
+    return obj.toString();
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return null;
 }
 
 /**

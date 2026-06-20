@@ -8,7 +8,13 @@ import { SuperController } from './super.controller';
 import { SuperService } from './super.service';
 
 @Module({
-  imports: [AuthModule, BuildingsModule, ApartmentsModule, UserModule, CommonModule],
+  imports: [
+    AuthModule,
+    BuildingsModule,
+    ApartmentsModule,
+    UserModule,
+    CommonModule,
+  ],
   controllers: [SuperController],
   providers: [SuperService],
 })

@@ -3,19 +3,19 @@ import { HydratedDocument, Types } from 'mongoose';
 
 export type apartmentdocument = HydratedDocument<Apartment>;
 
-@Schema({ timestamps: true, collection: 'apartamentos'})
+@Schema({ timestamps: true, collection: 'apartamentos' })
 export class Apartment {
-    @Prop({ required: true, type: Types.ObjectId, ref: 'Building', index: true })
-    buildingId: Types.ObjectId;
+  @Prop({ required: true, type: Types.ObjectId, ref: 'Building', index: true })
+  buildingId: Types.ObjectId;
 
-    @Prop({ required: true})
-    piso: number;
+  @Prop({ required: true })
+  piso: number;
 
-    @Prop({ required: true})
-    numero: number;
+  @Prop({ required: true })
+  numero: number;
 
-    @Prop({ required: true})
-    idUnico: string;
+  @Prop({ required: true })
+  idUnico: string;
 }
 
 export const apartmentschema = SchemaFactory.createForClass(Apartment);

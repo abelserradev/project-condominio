@@ -9,6 +9,11 @@ import { OcrLog, OcrLogDocument } from './schemas/ocr-log.schema';
 
 export const OCR_ENGINE = Symbol('OCR_ENGINE');
 
+type OcrLogPayload = Pick<
+  ComprobanteExtractionDto,
+  'banco' | 'montoBs' | 'fechaPago' | 'numeroComprobante'
+>;
+
 @Injectable()
 export class OcrService {
   private readonly logger = new Logger(OcrService.name);
@@ -16,18 +21,22 @@ export class OcrService {
   constructor(
     @Inject(OCR_ENGINE) private readonly engine: IOcrEngine,
     private readonly ollamaBankLogo: OllamaBankLogoService,
-    @InjectModel(OcrLog.name) private readonly ocrLogModel: Model<OcrLogDocument>,
+    @InjectModel(OcrLog.name)
+    private readonly ocrLogModel: Model<OcrLogDocument>,
   ) {}
 
-  async extraerComprobante(imageBuffer: Buffer): Promise<ComprobanteExtractionDto> {
+  async extraerComprobante(
+    imageBuffer: Buffer,
+  ): Promise<ComprobanteExtractionDto> {
     const result = await this.engine.extract(imageBuffer);
-    this.logger.log(`OCR raw (primeros 300 chars): ${result.raw.slice(0, 300)}`);
+    this.logger.log(
+      `OCR raw (primeros 300 chars): ${result.raw.slice(0, 300)}`,
+    );
     const dto = parseComprobanteResponse(result);
 
     if (!dto.banco && /banco\s+destino/i.test(result.raw)) {
-      const bancoPorLogo = await this.ollamaBankLogo.identificarBancoPorLogo(
-        imageBuffer,
-      );
+      const bancoPorLogo =
+        await this.ollamaBankLogo.identificarBancoPorLogo(imageBuffer);
       if (bancoPorLogo) {
         dto.banco = bancoPorLogo;
         this.logger.log(`Banco inferido por logo: ${bancoPorLogo}`);
@@ -38,13 +47,17 @@ export class OcrService {
     return dto;
   }
 
-  async registrarOcrLog(fileId: string, prediccion: any, datosReales: any) {
+  async registrarOcrLog(
+    fileId: string,
+    prediccion: OcrLogPayload,
+    datosReales: OcrLogPayload,
+  ): Promise<void> {
     try {
-      const pBanco = prediccion.banco?.toLowerCase() || '';
-      const rBanco = datosReales.banco?.toLowerCase() || '';
-      const pRef = prediccion.numeroComprobante || '';
-      const rRef = datosReales.numeroComprobante || '';
-      
+      const pBanco = prediccion.banco?.toLowerCase() ?? '';
+      const rBanco = datosReales.banco?.toLowerCase() ?? '';
+      const pRef = prediccion.numeroComprobante ?? '';
+      const rRef = datosReales.numeroComprobante ?? '';
+
       const esCorrecto = pBanco === rBanco && pRef === rRef;
 
       await this.ocrLogModel.create({
@@ -63,9 +76,12 @@ export class OcrService {
         },
         esCorrecto,
       });
-      this.logger.log(`OCR Log registrado para comp. ${fileId} - Correcto: ${esCorrecto}`);
-    } catch (e: any) {
-      this.logger.error(`Error guardando OCR Log: ${e.message}`);
+      this.logger.log(
+        `OCR Log registrado para comp. ${fileId} - Correcto: ${esCorrecto}`,
+      );
+    } catch (e: unknown) {
+      const errMsg = e instanceof Error ? e.message : String(e);
+      this.logger.error(`Error guardando OCR Log: ${errMsg}`);
     }
   }
 }

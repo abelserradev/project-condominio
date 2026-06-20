@@ -8,7 +8,9 @@ import { BuildingContextGuard } from '../common/guards/building-context.guard';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Building.name, schema: BuildingSchema }]),
+    MongooseModule.forFeature([
+      { name: Building.name, schema: BuildingSchema },
+    ]),
     forwardRef(() => AuthModule),
   ],
   controllers: [BuildingsController],

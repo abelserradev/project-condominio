@@ -1,5 +1,11 @@
-import { Controller, Get, Param, Req, UseGuards, NotFoundException } from '@nestjs/common';
-import { Types } from 'mongoose';
+import {
+  Controller,
+  Get,
+  Param,
+  Req,
+  UseGuards,
+  NotFoundException,
+} from '@nestjs/common';
 import { BuildingsService } from './buildings.service';
 import { BuildingContextGuard } from '../common/guards/building-context.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -28,7 +34,7 @@ export class BuildingsController {
   @UseGuards(BuildingContextGuard, JwtAuthGuard)
   async getSuscripcion(@Req() req: BuildingRequest) {
     const info = await this.buildingsService.getSuscripcionInfo(
-      req.building._id as Types.ObjectId,
+      req.building._id,
     );
     if (!info) throw new NotFoundException('Edificio no encontrado');
     return info;

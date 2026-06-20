@@ -1,17 +1,25 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { AbonoApartamento, AbonoApartamentoDocument } from './schemas/abono-apartamento.schema';
+import {
+  AbonoApartamento,
+  AbonoApartamentoDocument,
+} from './schemas/abono-apartamento.schema';
 import { CacheService } from '../common/cache.service';
 
 @Injectable()
 export class AbonoApartamentoService {
   constructor(
-    @InjectModel(AbonoApartamento.name) private abonoModel: Model<AbonoApartamentoDocument>,
+    @InjectModel(AbonoApartamento.name)
+    private abonoModel: Model<AbonoApartamentoDocument>,
     private readonly cacheService: CacheService,
   ) {}
 
-  async getMonto(piso: number, apartamento: number, buildingId?: Types.ObjectId): Promise<number> {
+  async getMonto(
+    piso: number,
+    apartamento: number,
+    buildingId?: Types.ObjectId,
+  ): Promise<number> {
     const cacheKey = `abono:${buildingId?.toString() ?? 'global'}:${piso}:${apartamento}`;
     const cached = await this.cacheService.get<number>(cacheKey);
     if (cached !== undefined && cached !== null) return cached;
@@ -25,21 +33,36 @@ export class AbonoApartamentoService {
     return monto;
   }
 
-  async agregar(piso: number, apartamento: number, monto: number, buildingId?: Types.ObjectId): Promise<void> {
+  async agregar(
+    piso: number,
+    apartamento: number,
+    monto: number,
+    buildingId?: Types.ObjectId,
+  ): Promise<void> {
     if (monto <= 0) return;
 
     const filter: Record<string, unknown> = { piso, apartamento };
     if (buildingId) filter.buildingId = buildingId;
 
-    await this.abonoModel.findOneAndUpdate(
-      filter,
-      { $inc: { monto }, ...(buildingId && { $setOnInsert: { buildingId } }) },
-      { upsert: true, new: true },
-    ).exec();
+    await this.abonoModel
+      .findOneAndUpdate(
+        filter,
+        {
+          $inc: { monto },
+          ...(buildingId && { $setOnInsert: { buildingId } }),
+        },
+        { upsert: true, new: true },
+      )
+      .exec();
     await this.invalidarCache(piso, apartamento, buildingId);
   }
 
-  async consumir(piso: number, apartamento: number, monto: number, buildingId?: Types.ObjectId): Promise<number> {
+  async consumir(
+    piso: number,
+    apartamento: number,
+    monto: number,
+    buildingId?: Types.ObjectId,
+  ): Promise<number> {
     if (monto <= 0) return 0;
 
     const filter: Record<string, unknown> = { piso, apartamento };
@@ -57,7 +80,13 @@ export class AbonoApartamentoService {
     return aConsumir;
   }
 
-  private async invalidarCache(piso: number, apartamento: number, buildingId?: Types.ObjectId): Promise<void> {
-    await this.cacheService.delete(`abono:${buildingId?.toString() ?? 'global'}:${piso}:${apartamento}`);
+  private async invalidarCache(
+    piso: number,
+    apartamento: number,
+    buildingId?: Types.ObjectId,
+  ): Promise<void> {
+    await this.cacheService.delete(
+      `abono:${buildingId?.toString() ?? 'global'}:${piso}:${apartamento}`,
+    );
   }
 }

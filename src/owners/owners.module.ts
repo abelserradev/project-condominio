@@ -7,7 +7,10 @@ import { AuthModule } from '../auth/auth.module';
 import { BuildingsModule } from '../buildings/buildings.module';
 import { BuildingContextGuard } from '../common/guards/building-context.guard';
 import { SubscriptionGuard } from '../common/guards/subscription.guard';
-import { Apartment, apartmentschema } from '../apartments/schemas/apartment.schema';
+import {
+  Apartment,
+  apartmentschema,
+} from '../apartments/schemas/apartment.schema';
 
 @Module({
   imports: [

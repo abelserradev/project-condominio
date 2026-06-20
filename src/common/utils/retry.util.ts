@@ -21,9 +21,9 @@ export async function withRetry<T>(
       if (!isRetryable || attempt === maxAttempts - 1) {
         throw lastError;
       }
-      const delay = delays[attempt] ?? delays[delays.length - 1];
+      const delay = delays[attempt] ?? delays.at(-1);
       await new Promise((r) => setTimeout(r, delay));
     }
   }
-  throw lastError;
+  throw lastError ?? new Error('Operación fallida tras reintentos');
 }

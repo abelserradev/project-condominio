@@ -10,7 +10,10 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import { OcrService } from './ocr.service';
-import { validateFileMimeType, validateFileSize } from '../common/utils/file-validation.util';
+import {
+  validateFileMimeType,
+  validateFileSize,
+} from '../common/utils/file-validation.util';
 import { CacheService } from '../common/cache.service';
 import { BuildingContextGuard } from '../common/guards/building-context.guard';
 import * as crypto from 'crypto';
@@ -49,11 +52,18 @@ export class OcrController {
 
     try {
       const result = await this.ocrService.extraerComprobante(file.buffer);
-      
+
       // Guardar predicción en caché por 2 horas vinculado al hash de la imagen
-      const fileHash = crypto.createHash('sha256').update(file.buffer).digest('hex');
-      await this.cacheService.set(`ocr_pred:${fileHash}`, result, 2 * 60 * 60 * 1000);
-      
+      const fileHash = crypto
+        .createHash('sha256')
+        .update(file.buffer)
+        .digest('hex');
+      await this.cacheService.set(
+        `ocr_pred:${fileHash}`,
+        result,
+        2 * 60 * 60 * 1000,
+      );
+
       return result;
     } catch (err) {
       this.logger.warn(
