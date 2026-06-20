@@ -10,7 +10,7 @@ import { Model, Types } from 'mongoose';
 import { Building, BuildingDocument } from './schemas/building.schema';
 import { buildPortalUrl } from './utils/portal-url.util';
 
-const SLUGS_RESERVADOS = [
+const SLUGS_RESERVADOS = new Set([
   'super',
   'admin',
   'api',
@@ -21,7 +21,7 @@ const SLUGS_RESERVADOS = [
   'assets',
   'login',
   'registro',
-];
+]);
 
 @Injectable()
 export class BuildingsService {
@@ -48,7 +48,7 @@ export class BuildingsService {
   }
 
   isSlugReservado(slug: string): boolean {
-    return SLUGS_RESERVADOS.includes(slug.toLowerCase().trim());
+    return SLUGS_RESERVADOS.has(slug.toLowerCase().trim());
   }
 
   async create(data: {
@@ -60,7 +60,7 @@ export class BuildingsService {
   }): Promise<BuildingDocument> {
     const slugNorm = data.slug.toLowerCase().trim();
 
-    if (SLUGS_RESERVADOS.includes(slugNorm)) {
+    if (SLUGS_RESERVADOS.has(slugNorm)) {
       throw new BadRequestException(
         `El subdominio "${slugNorm}" está reservado y no puede usarse`,
       );

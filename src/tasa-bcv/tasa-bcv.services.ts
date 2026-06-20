@@ -49,7 +49,7 @@ function restarDias(fecha: string, dias: number): string {
 
 @Injectable()
 export class TasaBcvService {
-  private pendingPromises = new Map<string, Promise<TasaBcvResult>>();
+  private readonly pendingPromises = new Map<string, Promise<TasaBcvResult>>();
 
   constructor(private readonly cacheService: CacheService) {}
 

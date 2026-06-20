@@ -23,9 +23,10 @@ export class OwnersService {
   private readonly logger = new Logger(OwnersService.name);
 
   constructor(
-    @InjectModel(Owner.name) private ownerModel: Model<OwnerDocument>,
+    @InjectModel(Owner.name)
+    private readonly ownerModel: Model<OwnerDocument>,
     @InjectModel(Apartment.name)
-    private apartmentModel: Model<apartmentdocument>,
+    private readonly apartmentModel: Model<apartmentdocument>,
   ) {}
 
   async findByEmail(
@@ -111,12 +112,21 @@ export class OwnersService {
       activo: true,
     });
 
-    // TODO: enviar invitación real con Resend cuando esté configurado SMTP
-    this.logger.log(
-      `[invitación] Nuevo ${dto.rol} "${dto.nombre}" <${emailNorm}> | apt ${idUnico} | contraseña inicial establecida`,
-    );
+    this.logOwnerInvitation(dto.rol, dto.nombre.trim(), emailNorm, idUnico);
 
     return doc.toObject();
+  }
+
+  /** Sin SMTP/Resend configurado: dejamos trazabilidad en log en lugar de correo real. */
+  private logOwnerInvitation(
+    rol: string,
+    nombre: string,
+    email: string,
+    idUnico: string,
+  ): void {
+    this.logger.log(
+      `[invitación] Nuevo ${rol} "${nombre}" <${email}> | apt ${idUnico} | contraseña inicial establecida`,
+    );
   }
 
   async update(

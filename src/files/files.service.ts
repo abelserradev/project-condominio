@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
-import { Readable } from 'stream';
+import { Readable } from 'node:stream';
 import * as mongoose from 'mongoose';
 import { ImageCompressionService } from './image-compression.service';
 import { validateFileMimeType } from '../common/utils/file-validation.util';
@@ -10,10 +10,10 @@ const BUCKET_NAME = 'archivos';
 
 @Injectable()
 export class FilesService {
-  private bucket: mongoose.mongo.GridFSBucket;
+  private readonly bucket: mongoose.mongo.GridFSBucket;
 
   constructor(
-    @InjectConnection() private connection: Connection,
+    @InjectConnection() private readonly connection: Connection,
     private readonly imageCompression: ImageCompressionService,
   ) {
     this.bucket = new mongoose.mongo.GridFSBucket(

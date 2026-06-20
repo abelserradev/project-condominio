@@ -45,12 +45,10 @@ export class ImageCompressionService {
         .toFormat(outputFormat, { quality: QUALITY })
         .toBuffer();
 
-      const finalMimetype =
-        outputFormat === 'jpeg'
-          ? 'image/jpeg'
-          : outputFormat === 'png'
-            ? 'image/png'
-            : (mimetype ?? 'image/jpeg');
+      const finalMimetype = this.resolveCompressedMimetype(
+        outputFormat,
+        mimetype,
+      );
 
       return {
         buffer: compressedBuffer,
@@ -63,6 +61,19 @@ export class ImageCompressionService {
       );
       return { buffer, mimetype: mimetype ?? 'application/octet-stream' };
     }
+  }
+
+  private resolveCompressedMimetype(
+    outputFormat: 'jpeg' | 'png' | 'webp',
+    mimetype?: string,
+  ): string {
+    if (outputFormat === 'jpeg') {
+      return 'image/jpeg';
+    }
+    if (outputFormat === 'png') {
+      return 'image/png';
+    }
+    return mimetype ?? 'image/jpeg';
   }
 
   private getOutputFormat(mimetype?: string): 'jpeg' | 'png' | 'webp' {

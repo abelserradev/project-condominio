@@ -11,7 +11,7 @@ import { CacheService } from '../common/cache.service';
 export class AbonoApartamentoService {
   constructor(
     @InjectModel(AbonoApartamento.name)
-    private abonoModel: Model<AbonoApartamentoDocument>,
+    private readonly abonoModel: Model<AbonoApartamentoDocument>,
     private readonly cacheService: CacheService,
   ) {}
 

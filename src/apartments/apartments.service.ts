@@ -9,7 +9,7 @@ import { Apartment, apartmentdocument } from './schemas/apartment.schema';
 export class ApartmentsService {
   constructor(
     @InjectModel(Apartment.name)
-    private apartmentModel: Model<apartmentdocument>,
+    private readonly apartmentModel: Model<apartmentdocument>,
   ) {}
 
   async findAll(buildingId?: Types.ObjectId): Promise<apartmentdocument[]> {

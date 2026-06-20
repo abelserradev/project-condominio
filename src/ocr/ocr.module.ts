@@ -1,10 +1,9 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { OcrService } from './ocr.service';
+import { OcrService, OCR_ENGINE } from './ocr.service';
 import { OcrController } from './ocr.controller';
 import { TesseractOcrEngine } from './engines/tesseract/tesseract-ocr.engine';
 import { OllamaBankLogoService } from './services/ollama-bank-logo.service';
-import { OCR_ENGINE } from './ocr.service';
 import { OcrLog, OcrLogSchema } from './schemas/ocr-log.schema';
 import { CommonModule } from '../common/common.module';
 

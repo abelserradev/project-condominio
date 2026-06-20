@@ -1,1 +1,1 @@
-export class UpdatePaymentDto {}
+export { UpdatePaymentDto } from '../update-payment.dto';

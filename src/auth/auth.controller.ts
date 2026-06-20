@@ -17,7 +17,7 @@ const LOGIN_THROTTLE_LIMIT = process.env.NODE_ENV === 'production' ? 5 : 30;
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
-  constructor(private authService: AuthService) {}
+  constructor(private readonly authService: AuthService) {}
 
   @Post('login')
   @UseGuards(CsrfGuard)

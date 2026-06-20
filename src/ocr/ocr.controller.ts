@@ -16,10 +16,10 @@ import {
 } from '../common/utils/file-validation.util';
 import { CacheService } from '../common/cache.service';
 import { BuildingContextGuard } from '../common/guards/building-context.guard';
-import * as crypto from 'crypto';
+import * as crypto from 'node:crypto';
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024;
-const OCR_ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp'];
+const OCR_ALLOWED_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 @Controller('ocr')
 export class OcrController {
@@ -44,7 +44,7 @@ export class OcrController {
     validateFileSize(file.buffer, MAX_SIZE_BYTES);
     const validatedMime = validateFileMimeType(file.buffer, file.mimetype);
 
-    if (!OCR_ALLOWED_MIMES.includes(validatedMime)) {
+    if (!OCR_ALLOWED_MIMES.has(validatedMime)) {
       throw new BadRequestException(
         'Formato no soportado para OCR. Use JPEG, PNG o WebP.',
       );

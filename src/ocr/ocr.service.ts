@@ -14,6 +14,23 @@ type OcrLogPayload = Pick<
   'banco' | 'montoBs' | 'fechaPago' | 'numeroComprobante'
 >;
 
+type OcrLogSnapshot = {
+  banco?: string;
+  montoBs?: number;
+  fechaPago?: string;
+  numeroComprobante?: string;
+};
+
+function toOcrLogSnapshot(payload: OcrLogPayload): OcrLogSnapshot {
+  return {
+    banco: payload.banco,
+    // El DTO de OCR permite null; el schema de log solo acepta number | undefined
+    montoBs: payload.montoBs ?? undefined,
+    fechaPago: payload.fechaPago,
+    numeroComprobante: payload.numeroComprobante,
+  };
+}
+
 @Injectable()
 export class OcrService {
   private readonly logger = new Logger(OcrService.name);
@@ -62,18 +79,8 @@ export class OcrService {
 
       await this.ocrLogModel.create({
         comprobanteFileId: new Types.ObjectId(fileId),
-        prediccionMoondream: {
-          banco: prediccion.banco,
-          montoBs: prediccion.montoBs,
-          fechaPago: prediccion.fechaPago,
-          numeroComprobante: prediccion.numeroComprobante,
-        },
-        datosRealesUsuario: {
-          banco: datosReales.banco,
-          montoBs: datosReales.montoBs,
-          fechaPago: datosReales.fechaPago,
-          numeroComprobante: datosReales.numeroComprobante,
-        },
+        prediccionMoondream: toOcrLogSnapshot(prediccion),
+        datosRealesUsuario: toOcrLogSnapshot(datosReales),
         esCorrecto,
       });
       this.logger.log(

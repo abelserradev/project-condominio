@@ -12,15 +12,15 @@ import { AdministracionService } from '../administracion/administracion.service'
 import { CacheService } from '../common/cache.service';
 import { OcrService } from '../ocr/ocr.service';
 import type { ComprobanteExtractionDto } from '../ocr/dto/comprobante-extraction.dto';
-import * as crypto from 'crypto';
+import * as crypto from 'node:crypto';
 
 // Parsear fecha a mediodía UTC para evitar problemas de zona horaria
 function parsearFechaPago(fechaString: string): Date {
   const partes = fechaString.split('-');
   if (partes.length !== 3) {
     const parsed = new Date(fechaString);
-    if (isNaN(parsed.getTime())) {
-      throw new Error(`Fecha inválida: ${fechaString}`);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new TypeError(`Fecha inválida: ${fechaString}`);
     }
     return new Date(
       Date.UTC(
@@ -33,9 +33,9 @@ function parsearFechaPago(fechaString: string): Date {
       ),
     );
   }
-  const año = parseInt(partes[0], 10);
-  const mes = parseInt(partes[1], 10) - 1;
-  const día = parseInt(partes[2], 10);
+  const año = Number.parseInt(partes[0], 10);
+  const mes = Number.parseInt(partes[1], 10) - 1;
+  const día = Number.parseInt(partes[2], 10);
   return new Date(Date.UTC(año, mes, día, 12, 0, 0));
 }
 
@@ -59,7 +59,8 @@ export type CreatePaymentInput = {
 @Injectable()
 export class PaymentsService {
   constructor(
-    @InjectModel(Payment.name) private paymentModel: Model<paymentdocument>,
+    @InjectModel(Payment.name)
+    private readonly paymentModel: Model<paymentdocument>,
     private readonly filesService: FilesService,
     @Inject(forwardRef(() => AdministracionService))
     private readonly administracionService: AdministracionService,
@@ -195,9 +196,7 @@ export class PaymentsService {
         recibosIds: pagoDoc.recibosPagados?.length
           ? pagoDoc.recibosPagados.map((id) => id.toString())
           : undefined,
-        meses: !pagoDoc.recibosPagados?.length
-          ? pagoDoc.meses || []
-          : undefined,
+        meses: pagoDoc.recibosPagados?.length ? undefined : pagoDoc.meses || [],
         montoPago: pagoDoc.montoUsd,
         paymentId,
         fechaPago,

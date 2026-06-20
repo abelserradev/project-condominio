@@ -6,7 +6,9 @@ import { User, UserDocument } from './schemas/user.schema';
 
 @Injectable()
 export class UserService {
-  constructor(@InjectModel(User.name) private readonly userModel: Model<UserDocument>) {}
+  constructor(
+    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+  ) {}
 
   async findByUsuario(usuario: string): Promise<UserDocument | null> {
     return this.userModel.findOne({ usuario }).lean().exec();
@@ -74,7 +76,10 @@ export class UserService {
   }
 
   async existeSuperAdmin(): Promise<boolean> {
-    const doc = await this.userModel.findOne({ isSuperAdmin: true }).lean().exec();
+    const doc = await this.userModel
+      .findOne({ isSuperAdmin: true })
+      .lean()
+      .exec();
     return doc !== null;
   }
 }
