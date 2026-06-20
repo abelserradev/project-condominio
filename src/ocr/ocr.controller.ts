@@ -5,10 +5,15 @@ import {
   UploadedFile,
   BadRequestException,
   Logger,
+  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import { OcrService } from './ocr.service';
 import { validateFileMimeType, validateFileSize } from '../common/utils/file-validation.util';
+import { CacheService } from '../common/cache.service';
+import { BuildingContextGuard } from '../common/guards/building-context.guard';
+import * as crypto from 'crypto';
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024;
 const OCR_ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -17,9 +22,14 @@ const OCR_ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp'];
 export class OcrController {
   private readonly logger = new Logger(OcrController.name);
 
-  constructor(private readonly ocrService: OcrService) {}
+  constructor(
+    private readonly ocrService: OcrService,
+    private readonly cacheService: CacheService,
+  ) {}
 
   @Post('extract-receipt')
+  @UseGuards(BuildingContextGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @UseInterceptors(
     FileInterceptor('comprobante', { limits: { fileSize: MAX_SIZE_BYTES } }),
   )
@@ -39,6 +49,11 @@ export class OcrController {
 
     try {
       const result = await this.ocrService.extraerComprobante(file.buffer);
+      
+      // Guardar predicción en caché por 2 horas vinculado al hash de la imagen
+      const fileHash = crypto.createHash('sha256').update(file.buffer).digest('hex');
+      await this.cacheService.set(`ocr_pred:${fileHash}`, result, 2 * 60 * 60 * 1000);
+      
       return result;
     } catch (err) {
       this.logger.warn(

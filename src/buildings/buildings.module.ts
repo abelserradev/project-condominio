@@ -1,9 +1,18 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
 import { BuildingsController } from './buildings.controller';
 import { BuildingsService } from './buildings.service';
+import { Building, BuildingSchema } from './schemas/building.schema';
+import { AuthModule } from '../auth/auth.module';
+import { BuildingContextGuard } from '../common/guards/building-context.guard';
 
 @Module({
+  imports: [
+    MongooseModule.forFeature([{ name: Building.name, schema: BuildingSchema }]),
+    forwardRef(() => AuthModule),
+  ],
   controllers: [BuildingsController],
-  providers: [BuildingsService]
+  providers: [BuildingsService, BuildingContextGuard],
+  exports: [BuildingsService, MongooseModule],
 })
 export class BuildingsModule {}

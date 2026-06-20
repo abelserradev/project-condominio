@@ -10,15 +10,21 @@ import {
   BadRequestException,
   NotFoundException,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { BuildingContextGuard } from '../common/guards/building-context.guard';
+import { SubscriptionGuard } from '../common/guards/subscription.guard';
 import { AdministracionService } from './administracion.service';
 import { AbonoApartamentoService } from './abono-apartamento.service';
 import { Types } from 'mongoose';
 import { mapReciboToResponse } from '../common/utils/serialize-mongoose.util';
 import { validateEstado, sanitizeTipoDeuda } from '../common/utils/security.util';
 import { validateFileMimeType, validateFileSize } from '../common/utils/file-validation.util';
+import { BuildingDocument } from '../buildings/schemas/building.schema';
+
+type RequestWithBuilding = { building: BuildingDocument };
 
 @Controller('administracion')
 export class AdministracionController {
@@ -28,7 +34,9 @@ export class AdministracionController {
   ) {}
 
   @Get('public/abono')
+  @UseGuards(BuildingContextGuard)
   async getAbonoPublico(
+    @Req() req: RequestWithBuilding,
     @Query('piso') piso: string,
     @Query('apartamento') apartamento: string,
   ) {
@@ -37,25 +45,24 @@ export class AdministracionController {
     if (p == null || a == null || Number.isNaN(p) || Number.isNaN(a)) {
       throw new BadRequestException('piso y apartamento requeridos');
     }
-    const monto = await this.abonoApartamentoService.getMonto(p, a);
+    const monto = await this.abonoApartamentoService.getMonto(p, a, req.building._id as Types.ObjectId);
     return { monto };
   }
 
   @Get('public/pendientes')
+  @UseGuards(BuildingContextGuard)
   async findPendientesPublicos(
+    @Req() req: RequestWithBuilding,
     @Query('piso') piso: string,
     @Query('apartamento') apartamento: string,
   ) {
-    const p =
-      piso != null && piso !== '' ? parseInt(piso, 10) : undefined;
-    const a =
-      apartamento != null && apartamento !== ''
-        ? parseInt(apartamento, 10)
-        : undefined;
+    const p = piso != null && piso !== '' ? parseInt(piso, 10) : undefined;
+    const a = apartamento != null && apartamento !== '' ? parseInt(apartamento, 10) : undefined;
     if (p == null || a == null || Number.isNaN(p) || Number.isNaN(a)) {
       throw new BadRequestException('piso y apartamento requeridos');
     }
     const list = await this.administracionService.findPendientesConSaldo({
+      buildingId: req.building._id as Types.ObjectId,
       piso: p,
       apartamento: a,
     });
@@ -63,9 +70,10 @@ export class AdministracionController {
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, BuildingContextGuard, SubscriptionGuard)
   @UseInterceptors(FileInterceptor('comprobante', { limits: { fileSize: 5 * 1024 * 1024 } }))
   async create(
+    @Req() req: RequestWithBuilding,
     @UploadedFile() file: Express.Multer.File,
     @Body('piso') piso: string,
     @Body('apartamento') apartamento: string,
@@ -108,6 +116,7 @@ export class AdministracionController {
     }
     const tipoDeudaSanitizado = sanitizeTipoDeuda(tipoDeuda);
     const recibo = await this.administracionService.create({
+      buildingId: req.building._id as Types.ObjectId,
       piso: p,
       apartamento: a,
       meses,
@@ -122,21 +131,19 @@ export class AdministracionController {
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, BuildingContextGuard)
   async findAll(
+    @Req() req: RequestWithBuilding,
     @Query('piso') piso: string,
     @Query('apartamento') apartamento: string,
     @Query('estado') estado: string,
   ) {
-    const p =
-      piso != null && piso !== '' ? parseInt(piso, 10) : undefined;
-    const a =
-      apartamento != null && apartamento !== ''
-        ? parseInt(apartamento, 10)
-        : undefined;
+    const p = piso != null && piso !== '' ? parseInt(piso, 10) : undefined;
+    const a = apartamento != null && apartamento !== '' ? parseInt(apartamento, 10) : undefined;
     const allowedEstados = ['pendiente', 'pagado'];
     const estadoValidado = validateEstado(estado, allowedEstados);
     const list = await this.administracionService.findAll({
+      buildingId: req.building._id as Types.ObjectId,
       piso: p != null && !Number.isNaN(p) ? p : undefined,
       apartamento: a != null && !Number.isNaN(a) ? a : undefined,
       estado: estadoValidado,
@@ -145,15 +152,18 @@ export class AdministracionController {
   }
 
   @Get(':id')
-  @UseGuards(JwtAuthGuard)
-  async findOne(@Param('id') id: string) {
+  @UseGuards(JwtAuthGuard, BuildingContextGuard)
+  async findOne(@Param('id') id: string, @Req() req: RequestWithBuilding) {
     if (!id || id.trim() === '') {
       throw new BadRequestException('ID requerido');
     }
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('ID inválido');
     }
-    const recibo = await this.administracionService.findById(id);
+    const recibo = await this.administracionService.findById(
+      id,
+      req.building._id as Types.ObjectId,
+    );
     if (!recibo) {
       throw new NotFoundException('Recibo no encontrado');
     }

@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
-import { HydratedDocument } from "mongoose";
+import { HydratedDocument, Types } from "mongoose";
 
 
 export type AvisoDocument = HydratedDocument<Aviso>;
@@ -15,6 +15,9 @@ export type Aviso_estado = (typeof Aviso_estados)[number];
 
 @Schema({ timestamps: true, collection: 'avisos' })
 export class Aviso {
+  @Prop({ type: Types.ObjectId, ref: 'Building', index: true })
+  buildingId?: Types.ObjectId;
+
   @Prop({ required: true, trim: true })
   titulo: string;
 
@@ -32,4 +35,4 @@ export class Aviso {
 }
 
 export const AvisoSchema = SchemaFactory.createForClass(Aviso);
-AvisoSchema.index({ createdAt: -1 });
+AvisoSchema.index({ buildingId: 1, createdAt: -1 });

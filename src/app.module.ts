@@ -17,6 +17,8 @@ import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
 import { AvisosModule } from './avisos/avisos.module';
 import { OcrModule } from './ocr/ocr.module';
+import { SuperModule } from './super/super.module';
+import { OnboardingModule } from './onboarding/onboarding.module';
 
 const mongoUri =
   process.env.MONGODB_URI ?? 'mongodb://localhost:27017/condominio';
@@ -49,6 +51,8 @@ const mongoUri =
     AuthModule,
     AvisosModule,
     OcrModule,
+    SuperModule,
+    OnboardingModule,
   ],
   controllers: [AppController],
   providers: [

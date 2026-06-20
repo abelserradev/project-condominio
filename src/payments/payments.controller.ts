@@ -11,25 +11,32 @@ import {
   BadRequestException,
   NotFoundException,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CsrfGuard } from '../common/guards/csrf.guard';
+import { BuildingContextGuard } from '../common/guards/building-context.guard';
+import { SubscriptionGuard } from '../common/guards/subscription.guard';
 import { PaymentsService } from './payments.service';
 import { Types } from 'mongoose';
 import { mapPaymentToResponse } from '../common/utils/serialize-mongoose.util';
 import { validateEstado, sanitizeBanco, sanitizeComprobante } from '../common/utils/security.util';
 import { validateFileMimeType, validateFileSize } from '../common/utils/file-validation.util';
+import { BuildingDocument } from '../buildings/schemas/building.schema';
+
+
+type RequestWithBuilding = { building: BuildingDocument };
 
 @Controller('payments')
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
   @Post()
-  @UseGuards(CsrfGuard)
+  @UseGuards(CsrfGuard, BuildingContextGuard)
   @UseInterceptors(FileInterceptor('comprobante', { limits: { fileSize: 5 * 1024 * 1024 } }))
   async create(
+    @Req() req: RequestWithBuilding,
     @UploadedFile() file: Express.Multer.File,
     @Body('piso') piso: string,
     @Body('apartamento') apartamento: string,
@@ -94,6 +101,7 @@ export class PaymentsController {
       }
     }
     const payment = await this.paymentsService.create({
+      buildingId: req.building._id as Types.ObjectId,
       piso: p,
       apartamento: a,
       meses,
@@ -112,21 +120,19 @@ export class PaymentsController {
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, BuildingContextGuard)
   async findAll(
+    @Req() req: RequestWithBuilding,
     @Query('piso') piso: string,
     @Query('apartamento') apartamento: string,
     @Query('estado') estado: string,
   ) {
-    const p =
-      piso != null && piso !== '' ? parseInt(piso, 10) : undefined;
-    const a =
-      apartamento != null && apartamento !== ''
-        ? parseInt(apartamento, 10)
-        : undefined;
+    const p = piso != null && piso !== '' ? parseInt(piso, 10) : undefined;
+    const a = apartamento != null && apartamento !== '' ? parseInt(apartamento, 10) : undefined;
     const allowedEstados = ['pendiente', 'aceptado', 'rechazado'];
     const estadoValidado = validateEstado(estado, allowedEstados);
     const list = await this.paymentsService.findAll({
+      buildingId: req.building._id as Types.ObjectId,
       piso: p != null && !Number.isNaN(p) ? p : undefined,
       apartamento: a != null && !Number.isNaN(a) ? a : undefined,
       estado: estadoValidado,
@@ -135,9 +141,10 @@ export class PaymentsController {
   }
 
   // Endpoint público para residentes — requiere piso y apartamento obligatorios
-  // No expone pagos de otros apartamentos ni permite enumerar sin filtro
   @Get('public/por-apartamento')
+  @UseGuards(BuildingContextGuard)
   async findPublicByApartamento(
+    @Req() req: RequestWithBuilding,
     @Query('piso') piso: string,
     @Query('apartamento') apartamento: string,
   ) {
@@ -146,45 +153,59 @@ export class PaymentsController {
     if (Number.isNaN(p) || Number.isNaN(a)) {
       throw new BadRequestException('piso y apartamento son requeridos');
     }
-    const list = await this.paymentsService.findAll({ piso: p, apartamento: a });
+    const list = await this.paymentsService.findAll({
+      buildingId: req.building._id as Types.ObjectId,
+      piso: p,
+      apartamento: a,
+    });
     return list.map((x) => mapPaymentToResponse(x as unknown as Record<string, unknown>));
   }
 
-  // IMPORTANTE: Las rutas específicas deben ir ANTES de la genérica :id
   @Patch(':id/aceptar')
-  @UseGuards(JwtAuthGuard)
-  async aceptar(@Param('id') id: string) {
+  @UseGuards(JwtAuthGuard, BuildingContextGuard, SubscriptionGuard)
+  async aceptar(@Param('id') id: string, @Req() req: RequestWithBuilding) {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('ID inválido');
     }
-    const payment = await this.paymentsService.updateEstado(id, 'aceptado');
+    const payment = await this.paymentsService.updateEstado(
+      id,
+      'aceptado',
+      req.building._id as Types.ObjectId,
+    );
     return mapPaymentToResponse(payment as unknown as Record<string, unknown>);
   }
 
   @Patch(':id/rechazar')
-  @UseGuards(JwtAuthGuard)
-  async rechazar(@Param('id') id: string) {
+  @UseGuards(JwtAuthGuard, BuildingContextGuard, SubscriptionGuard)
+  async rechazar(@Param('id') id: string, @Req() req: RequestWithBuilding) {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('ID inválido');
     }
-    const payment = await this.paymentsService.updateEstado(id, 'rechazado');
+    const payment = await this.paymentsService.updateEstado(
+      id,
+      'rechazado',
+      req.building._id as Types.ObjectId,
+    );
     return mapPaymentToResponse(payment as unknown as Record<string, unknown>);
   }
 
-  // La ruta genérica :id debe ir AL FINAL
   @Get(':id')
-  @UseGuards(JwtAuthGuard)
-  async findOne(@Param('id') id: string) {
+  @UseGuards(JwtAuthGuard, BuildingContextGuard)
+  async findOne(@Param('id') id: string, @Req() req: RequestWithBuilding) {
     if (!id || id.trim() === '') {
       throw new BadRequestException('ID requerido');
     }
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('ID inválido');
     }
-    const payment = await this.paymentsService.findById(id);
+    const payment = await this.paymentsService.findById(
+      id,
+      req.building._id as Types.ObjectId,
+    );
     if (!payment) {
       throw new NotFoundException('Pago no encontrado');
     }
     return mapPaymentToResponse(payment as unknown as Record<string, unknown>);
   }
 }
+

@@ -7,6 +7,7 @@ import { CacheService } from '../common/cache.service';
 import { AbonoApartamentoService } from './abono-apartamento.service';
 
 export type CreateReciboInput = {
+  buildingId?: Types.ObjectId;
   piso: number;
   apartamento: number;
   meses: number[];
@@ -54,6 +55,7 @@ export class AdministracionService {
       mimetype: input.facturaMimetype,
     });
     const doc = await this.reciboModel.create({
+      buildingId: input.buildingId,
       piso: input.piso,
       apartamento: input.apartamento,
       idUnico,
@@ -73,6 +75,7 @@ export class AdministracionService {
   }
 
   async findAll(filters: {
+    buildingId?: Types.ObjectId;
     piso?: number;
     apartamento?: number;
     estado?: string;
@@ -82,7 +85,8 @@ export class AdministracionService {
     if (cached) {
       return cached;
     }
-    const q: Record<string, number | string> = {};
+    const q: Record<string, unknown> = {};
+    if (filters.buildingId) q.buildingId = filters.buildingId;
     if (filters.piso != null) q.piso = filters.piso;
     if (filters.apartamento != null) q.apartamento = filters.apartamento;
     if (filters.estado != null) q.estado = filters.estado;
@@ -97,6 +101,7 @@ export class AdministracionService {
   }
 
   async findPendientesConSaldo(filters: {
+    buildingId?: Types.ObjectId;
     piso?: number;
     apartamento?: number;
   }): Promise<ReciboDocument[]> {
@@ -105,7 +110,8 @@ export class AdministracionService {
     if (cached) {
       return cached;
     }
-    const q: Record<string, number> = {};
+    const q: Record<string, unknown> = {};
+    if (filters.buildingId) q.buildingId = filters.buildingId;
     if (filters.piso != null) q.piso = filters.piso;
     if (filters.apartamento != null) q.apartamento = filters.apartamento;
     const list = await this.reciboModel
@@ -121,16 +127,21 @@ export class AdministracionService {
     return result;
   }
 
-  async findById(id: string): Promise<ReciboDocument | null> {
-    const doc = await this.reciboModel.findById(id).lean().exec();
+  async findById(id: string, buildingId?: Types.ObjectId): Promise<ReciboDocument | null> {
+    if (!Types.ObjectId.isValid(id)) return null;
+    const q: Record<string, unknown> = { _id: id };
+    if (buildingId) q.buildingId = buildingId;
+    const doc = await this.reciboModel.findOne(q).lean().exec();
     if (!doc) return null;
     return doc as ReciboDocument;
   }
 
   /**
    * Aplica pago aceptado con soporte de abono: exceso va a abono; si hay abono, se usa para cubrir deuda.
+   * buildingId se pasa desde el pago aceptado para garantizar aislamiento entre edificios.
    */
   async applyPagoAceptado(params: {
+    buildingId?: Types.ObjectId;
     piso: number;
     apartamento: number;
     recibosIds?: string[];
@@ -143,16 +154,22 @@ export class AdministracionService {
     let recibosPendientes: ReciboDocument[];
     if (params.recibosIds && params.recibosIds.length > 0) {
       const objectIds = params.recibosIds.map((id) => new Types.ObjectId(id));
-      const list = await this.reciboModel.find({ _id: { $in: objectIds } }).lean().exec();
+      // Incluir buildingId en el query para evitar que se modifiquen recibos de otro edificio
+      const q: Record<string, unknown> = { _id: { $in: objectIds } };
+      if (params.buildingId) q.buildingId = params.buildingId;
+      const list = await this.reciboModel.find(q).lean().exec();
       recibosPendientes = list.filter((r) => {
         const montoPagado = r.montoPagado || 0;
         return montoPagado < r.montoUsd;
       }) as ReciboDocument[];
     } else if (params.meses && params.meses.length > 0) {
-      const list = await this.reciboModel
-        .find({ piso: params.piso, apartamento: params.apartamento, meses: { $in: params.meses } })
-        .lean()
-        .exec();
+      const q: Record<string, unknown> = {
+        piso: params.piso,
+        apartamento: params.apartamento,
+        meses: { $in: params.meses },
+      };
+      if (params.buildingId) q.buildingId = params.buildingId;
+      const list = await this.reciboModel.find(q).lean().exec();
       recibosPendientes = list.filter((r) => {
         const montoPagado = r.montoPagado || 0;
         return montoPagado < r.montoUsd;
@@ -166,17 +183,17 @@ export class AdministracionService {
       const montoPagado = r.montoPagado || 0;
       return sum + (r.montoUsd - montoPagado);
     }, 0);
-    const abono = await this.abonoApartamentoService.getMonto(params.piso, params.apartamento);
+    const abono = await this.abonoApartamentoService.getMonto(params.piso, params.apartamento, params.buildingId);
     const amountFromPayment = Math.min(params.montoPago, totalDebt);
     const excess = Math.max(0, params.montoPago - totalDebt);
     const amountFromAbono = Math.min(abono, totalDebt - amountFromPayment);
     const totalToApply = amountFromPayment + amountFromAbono;
 
     if (excess > 0) {
-      await this.abonoApartamentoService.agregar(params.piso, params.apartamento, excess);
+      await this.abonoApartamentoService.agregar(params.piso, params.apartamento, excess, params.buildingId);
     }
     if (amountFromAbono > 0) {
-      await this.abonoApartamentoService.consumir(params.piso, params.apartamento, amountFromAbono);
+      await this.abonoApartamentoService.consumir(params.piso, params.apartamento, amountFromAbono, params.buildingId);
     }
 
     let result: { count: number; ids: string[] };
@@ -187,6 +204,7 @@ export class AdministracionService {
         params.paymentId,
         params.fechaPago,
         params.numeroComprobante,
+        params.buildingId,
       );
     } else {
       const { count, ids } = await this.updateManyByMeses(
@@ -197,6 +215,7 @@ export class AdministracionService {
         params.paymentId,
         params.fechaPago,
         params.numeroComprobante,
+        params.buildingId,
       );
       result = { count, ids };
     }
@@ -340,14 +359,13 @@ export class AdministracionService {
     paymentId: string,
     fechaPago: Date,
     numeroComprobante?: string,
+    buildingId?: Types.ObjectId,
   ): Promise<{ count: number; ids: string[]; abonosRegistrados: number }> {
     // 1 query: O(n) - obtener todos los recibos de una vez
+    const q: Record<string, unknown> = { piso, apartamento, meses: { $in: meses } };
+    if (buildingId) q.buildingId = buildingId;
     const recibos = await this.reciboModel
-      .find({
-        piso,
-        apartamento,
-        meses: { $in: meses },
-      })
+      .find(q)
       .lean()
       .exec();
     if (recibos.length === 0) {
@@ -386,16 +404,17 @@ export class AdministracionService {
     paymentId: string,
     fechaPago: Date,
     numeroComprobante?: string,
+    buildingId?: Types.ObjectId,
   ): Promise<{ count: number; ids: string[] }> {
     if (recibosIds.length === 0) {
       return { count: 0, ids: [] };
     }
     const objectIds = recibosIds.map((id) => new Types.ObjectId(id));
-    // 1 query: O(n) - obtener todos los recibos de una vez
+    // Incluir buildingId para prevenir modificación cruzada entre tenants
+    const q: Record<string, unknown> = { _id: { $in: objectIds } };
+    if (buildingId) q.buildingId = buildingId;
     const recibos = await this.reciboModel
-      .find({
-        _id: { $in: objectIds },
-      })
+      .find(q)
       .lean()
       .exec();
     if (recibos.length === 0) {

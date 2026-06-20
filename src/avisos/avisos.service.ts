@@ -13,9 +13,11 @@ export class AvisosService {
         private readonly cacheService: CacheService,
     ) {}
 
-    async findAll(): Promise<AvisoDocument[]> {
+    async findAll(buildingId?: Types.ObjectId): Promise<AvisoDocument[]> {
+        const q: Record<string, unknown> = {};
+        if (buildingId) q.buildingId = buildingId;
         return this.avisoModel
-            .find()
+            .find(q)
             .sort({ createdAt: -1 })
             .lean()
             .exec();
@@ -28,13 +30,16 @@ export class AvisosService {
         return new Types.ObjectId(id);
     }
 
-    async findOne(id: string): Promise<AvisoDocument | null> {
+    async findOne(id: string, buildingId?: Types.ObjectId): Promise<AvisoDocument | null> {
         const objectId = this.validateObjectId(id);
-        return this.avisoModel.findOne({ _id: objectId }).lean().exec();
+        const q: Record<string, unknown> = { _id: objectId };
+        if (buildingId) q.buildingId = buildingId;
+        return this.avisoModel.findOne(q).lean().exec();
     }
 
-    async create(dto: CreateAvisoDto): Promise<AvisoDocument> {
+    async create(dto: CreateAvisoDto, buildingId?: Types.ObjectId): Promise<AvisoDocument> {
         const doc = new this.avisoModel({
+            buildingId,
             titulo: dto.titulo.trim(),
             mensaje: dto.mensaje.trim(),
             tipo: dto.tipo,
@@ -44,7 +49,7 @@ export class AvisosService {
         return doc.save();
     }
 
-    async update(id: string, dto: UpdateAvisoDto): Promise<AvisoDocument | null> {
+    async update(id: string, dto: UpdateAvisoDto, buildingId?: Types.ObjectId): Promise<AvisoDocument | null> {
         const objectId = this.validateObjectId(id);
         const update: Record<string, unknown> = {};
         if (dto.titulo !== undefined) update.titulo = dto.titulo.trim();
@@ -53,18 +58,24 @@ export class AvisosService {
         if (dto.prioridad !== undefined) update.prioridad = dto.prioridad;
         if (dto.estado !== undefined) update.estado = dto.estado;
         if (Object.keys(update).length === 0) {
-            return this.avisoModel.findOne({ _id: objectId }).lean().exec();
+            const q: Record<string, unknown> = { _id: objectId };
+            if (buildingId) q.buildingId = buildingId;
+            return this.avisoModel.findOne(q).lean().exec();
         }
+        const filter: Record<string, unknown> = { _id: objectId };
+        if (buildingId) filter.buildingId = buildingId;
         const doc = await this.avisoModel
-            .findOneAndUpdate({ _id: objectId }, { $set: update }, { new: true })
+            .findOneAndUpdate(filter, { $set: update }, { new: true })
             .lean()
             .exec();
         return doc ?? null;
     }
 
-    async remove(id: string): Promise<void> {
+    async remove(id: string, buildingId?: Types.ObjectId): Promise<void> {
         const objectId = this.validateObjectId(id);
-        const result = await this.avisoModel.findOneAndDelete({ _id: objectId }).exec();
+        const filter: Record<string, unknown> = { _id: objectId };
+        if (buildingId) filter.buildingId = buildingId;
+        const result = await this.avisoModel.findOneAndDelete(filter).exec();
         if (!result) {
             throw new NotFoundException(`Aviso con id ${id} no encontrado`);
         }
@@ -74,13 +85,16 @@ export class AvisosService {
      * Cuenta avisos publicados más recientes que la última visita del dispositivo.
      * Sin deviceId o sin Redis: devuelve 0 (badge oculto).
      */
-    async getUnreadCount(deviceId: string | null): Promise<number> {
+    async getUnreadCount(deviceId: string | null, buildingId?: Types.ObjectId): Promise<number> {
         if (!deviceId) return 0;
 
         const lastReadAt = await this.cacheService.getAvisosLastRead(deviceId);
 
+        const q: Record<string, unknown> = { estado: 'publicado' };
+        if (buildingId) q.buildingId = buildingId;
+
         const publicados = await this.avisoModel
-            .find({ estado: 'publicado' })
+            .find(q)
             .select('createdAt')
             .sort({ createdAt: -1 })
             .lean()
@@ -98,7 +112,6 @@ export class AvisosService {
         return count;
     }
 
-    /** Marca avisos como leídos para el dispositivo */
     async markAsRead(deviceId: string): Promise<void> {
         if (deviceId) {
             await this.cacheService.setAvisosLastRead(deviceId);

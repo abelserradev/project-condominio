@@ -26,8 +26,7 @@ services:
     image: redis:7-alpine
     container_name: condominio-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    # Puerto no expuesto al host; la API accede vía red interna de Docker
     networks:
       - condominio_network
 
@@ -36,7 +35,7 @@ services:
     container_name: condominio-mongodb
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      - "27018:27017"
     environment:
       MONGO_INITDB_DATABASE: condominio
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}

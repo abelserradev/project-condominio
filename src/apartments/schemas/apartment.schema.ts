@@ -1,10 +1,13 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import { HydratedDocument, Types } from 'mongoose';
 
 export type apartmentdocument = HydratedDocument<Apartment>;
 
 @Schema({ timestamps: true, collection: 'apartamentos'})
 export class Apartment {
+    @Prop({ required: true, type: Types.ObjectId, ref: 'Building', index: true })
+    buildingId: Types.ObjectId;
+
     @Prop({ required: true})
     piso: number;
 
@@ -17,5 +20,6 @@ export class Apartment {
 
 export const apartmentschema = SchemaFactory.createForClass(Apartment);
 
-apartmentschema.index({piso: 1, numero: 1}, {unique: true});
-
+// buildingId como primer campo del índice compuesto — garantiza aislamiento entre tenants
+apartmentschema.index({ buildingId: 1, piso: 1, numero: 1 }, { unique: true });
+apartmentschema.index({ buildingId: 1, idUnico: 1 });

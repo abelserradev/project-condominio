@@ -5,6 +5,9 @@ export type paymentdocument = HydratedDocument<Payment>;
 
 @Schema({ timestamps: true, collection: 'payments' })
 export class Payment {
+  @Prop({ type: Types.ObjectId, ref: 'Building', index: true })
+  buildingId?: Types.ObjectId;
+
   @Prop({ required: true })
   piso: number;
 
@@ -47,6 +50,6 @@ export class Payment {
 
 export const paymentschema = SchemaFactory.createForClass(Payment);
 
-// Índices compuestos para queries comunes
-paymentschema.index({ piso: 1, apartamento: 1, estado: 1 });
-paymentschema.index({ createdAt: -1 });
+// buildingId al frente del índice compuesto — crítico para aislamiento multi-tenant
+paymentschema.index({ buildingId: 1, piso: 1, apartamento: 1, estado: 1 });
+paymentschema.index({ buildingId: 1, createdAt: -1 });
