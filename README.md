@@ -1,98 +1,155 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Condominio Platform — Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Sistema SaaS multi-tenant para la gestión de condominios y residencias. Permite a múltiples edificios gestionar pagos, recibos, avisos y propietarios de forma aislada y segura.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Características principales
 
-## Description
+- **Multi-tenant:** Cada edificio tiene su propio subdominio y datos aislados
+- **Roles:** SuperAdmin (plataforma), Admin (edificio), Propietario/Inquilino (residente)
+- **Gestión de pagos:** Reporte de pagos con comprobantes, aceptación/rechazo por parte de la administración
+- **Recibos:** Creación y seguimiento de facturas de condominio
+- **Avisos:** Sistema de notificaciones para residentes
+- **Seguridad:** JWT, CSRF, CORS, rate limiting, validación de archivos
+- **OCR:** Extracción automática de datos de comprobantes bancarios
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Stack tecnológico
 
-## Project setup
+- **Framework:** [NestJS](https://nestjs.com/) 11
+- **Lenguaje:** TypeScript
+- **Base de datos:** MongoDB (Mongoose)
+- **Autenticación:** Passport JWT + CSRF (csurf)
+- **Seguridad:** Helmet, Throttler, class-validator
+- **Archivos:** Multer + Sharp (compresión de imágenes)
+- **Testing:** Jest
 
-```bash
-$ npm install
-```
+## Requisitos
 
-## Compile and run the project
+- Node.js 18 o superior
+- MongoDB 5.0 o superior (local o Docker)
+- pnpm o npm
 
-```bash
-# development
-$ npm run start
+## Instalación
 
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
-```
-
-## Run tests
+### Con Docker (recomendado)
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+cd backend/condomini
+docker compose up --build
 ```
 
-## Deployment
+Esto levanta MongoDB y la API en el puerto **3001**.
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+### Sin Docker (solo API)
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+1. Tener MongoDB corriendo (por ejemplo en `localhost:27017`)
+2. Crear el archivo `.env` (ver sección de variables)
+3. Ejecutar:
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+cd backend/condomini
+pnpm install
+pnpm run start:dev
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Variables de entorno
 
-## Resources
+Crear un archivo `.env` en `backend/condomini/`:
 
-Check out a few resources that may come in handy when working with NestJS:
+| Variable | Descripción | Ejemplo |
+|----------|-------------|---------|
+| `MONGODB_URI` | Cadena de conexión a MongoDB | `mongodb://localhost:27017/condominio` |
+| `PORT` | Puerto donde escucha la API | `3001` |
+| `FRONTEND_URL` | URL del frontend (para CORS) | `http://localhost:3000` |
+| `JWT_SECRET` | Clave secreta para tokens JWT | `una-cadena-larga-y-aleatoria` |
+| `SUPERADMIN_USUARIO` | Usuario del SuperAdmin (solo para script) | `admin` |
+| `SUPERADMIN_PASSWORD` | Contraseña del SuperAdmin | `password-seguro` |
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+**Opcional:**
 
-## Support
+| Variable | Descripción |
+|----------|-------------|
+| `REDIS_URL` | Conexión a Redis para caché distribuido |
+| `DISABLE_CSRF` | Desactiva CSRF (solo desarrollo) |
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+**Importante:** No subir nunca archivos `.env` al repositorio.
 
-## Stay in touch
+## Scripts útiles
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+### Crear SuperAdmin
 
-## License
+```bash
+cd backend/condomini
+pnpm create-superadmin
+```
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Define `SUPERADMIN_USUARIO` y `SUPERADMIN_PASSWORD` en tu `.env` local y ejecuta el comando.
+
+### Migración de datos legacy
+
+Para migrar datos de una instalación single-tenant anterior:
+
+```bash
+SLUG_EDIFICIO=mi-edificio npx ts-node scripts/migrate-add-building-id.ts
+```
+
+## Estructura del proyecto
+
+```
+backend/condomini/
+├── src/
+│   ├── main.ts                 # Punto de entrada
+│   ├── app.module.ts           # Módulo raíz
+│   ├── auth/                   # Autenticación (JWT, login unificado)
+│   ├── user/                   # Usuarios administradores
+│   ├── owners/                 # Propietarios/inquilinos
+│   ├── payments/               # Pagos reportados
+│   ├── administracion/         # Recibos y abonos
+│   ├── buildings/              # Edificios (tenants)
+│   ├── apartments/             # Apartamentos
+│   ├── avisos/                 # Sistema de avisos
+│   ├── banks/                  # Bancos disponibles
+│   ├── files/                  # Gestión de archivos
+│   ├── tasa-bcv/               # Tasa de cambio BCV
+│   ├── ocr/                    # Extracción de comprobantes
+│   ├── super/                  # Panel SuperAdmin
+│   └── common/                 # Guards, filtros, utilidades
+├── scripts/                    # Scripts de utilidad
+├── .env                        # Variables de entorno (NO subir)
+└── README.md                   # Este archivo
+```
+
+## Endpoints principales
+
+### Públicos (sin autenticación)
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/tasa-bcv` | Tasa BCV del día |
+| GET | `/banks` | Lista de bancos |
+| GET | `/buildings/check-slug/:slug` | Verificar disponibilidad de slug |
+| POST | `/buildings/register` | Registro self-service de edificio |
+| POST | `/auth/login` | Login (admin/propietario) |
+| GET | `/csrf/token` | Token CSRF |
+
+### Protegidos (requieren JWT)
+
+Ver documentación completa en `condominio/documentacion.md`.
+
+## Seguridad
+
+- **CSRF:** Protección en login y POST de pagos
+- **CORS:** Orígenes permitidos según `FRONTEND_URL`
+- **Rate limiting:** Límite de peticiones por minuto
+- **Validación:** Sanitización de inputs, validación de archivos (MIME, tamaño)
+- **JWT:** Tokens firmados con claims de rol y buildingId
+- **Aislamiento:** Cada tenant solo accede a sus propios datos (buildingId en queries)
+
+## Documentación adicional
+
+- [Documentación técnica completa](../../condominio/documentacion.md)
+- [Plan SaaS Multi-Tenant](../../condominio/saas-multitenant-plan.md)
+- [Memoria del agente](../../.cursor/rules/condominio.mdc)
+
+## Licencia
+
+Proyecto privado. Uso exclusivo para gestión de condominios.
