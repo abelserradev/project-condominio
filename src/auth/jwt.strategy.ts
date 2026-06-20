@@ -20,7 +20,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor() {
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret || jwtSecret.trim() === '') {
-      throw new Error('JWT_SECRET debe estar definido en las variables de entorno');
+      throw new Error(
+        'JWT_SECRET debe estar definido en las variables de entorno',
+      );
     }
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -29,7 +31,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: JwtPayload) {
+  validate(payload: JwtPayload) {
     if (!payload.sub) {
       throw new UnauthorizedException('Token inválido: payload incompleto');
     }

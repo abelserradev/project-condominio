@@ -64,6 +64,9 @@ export class SuperController {
     @Param('id') id: string,
     @Body() body: { datosContactoPago: string },
   ) {
-    return this.superService.actualizarDatosPago(id, body.datosContactoPago ?? '');
+    return this.superService.actualizarDatosPago(
+      id,
+      body.datosContactoPago ?? '',
+    );
   }
 }

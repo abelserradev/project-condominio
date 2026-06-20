@@ -14,7 +14,7 @@ const jwtSecret = process.env.JWT_SECRET;
 if (!jwtSecret || jwtSecret.trim() === '') {
   throw new Error(
     'JWT_SECRET debe estar definido en las variables de entorno. ' +
-    'Genera uno seguro con: openssl rand -base64 32'
+      'Genera uno seguro con: openssl rand -base64 32',
   );
 }
 

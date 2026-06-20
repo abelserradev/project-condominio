@@ -12,7 +12,9 @@ export type OwnerResponse = {
   createdAt?: string;
 };
 
-export function mapOwnerToResponse(doc: OwnerDocument & { createdAt?: Date }): OwnerResponse {
+export function mapOwnerToResponse(
+  doc: OwnerDocument & { createdAt?: Date },
+): OwnerResponse {
   return {
     _id: (doc._id as { toString(): string }).toString(),
     nombre: doc.nombre,
@@ -22,6 +24,7 @@ export function mapOwnerToResponse(doc: OwnerDocument & { createdAt?: Date }): O
     idUnico: doc.idUnico,
     rol: doc.rol,
     activo: doc.activo ?? true,
-    createdAt: doc.createdAt instanceof Date ? doc.createdAt.toISOString() : undefined,
+    createdAt:
+      doc.createdAt instanceof Date ? doc.createdAt.toISOString() : undefined,
   };
 }

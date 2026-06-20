@@ -1,4 +1,14 @@
-import { IsNotEmpty, IsNumber, IsArray, IsString, IsOptional, Min, Max, ArrayMinSize, IsInt } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsArray,
+  IsString,
+  IsOptional,
+  Min,
+  Max,
+  ArrayMinSize,
+  IsInt,
+} from 'class-validator';
 
 export class CreatePaymentDto {
   @IsNotEmpty({ message: 'El piso es requerido' })
@@ -30,7 +40,9 @@ export class CreatePaymentDto {
   fechaPago: string;
 
   @IsNotEmpty({ message: 'El número de comprobante es requerido' })
-  @IsString({ message: 'El número de comprobante debe ser una cadena de texto' })
+  @IsString({
+    message: 'El número de comprobante debe ser una cadena de texto',
+  })
   numeroComprobante: string;
 
   @IsNotEmpty({ message: 'El monto en USD es requerido' })

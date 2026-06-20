@@ -6,7 +6,9 @@ import { BANCOS_VENEZUELA } from './data/banks.seed';
 
 @Injectable()
 export class BanksService implements OnModuleInit {
-  constructor(@InjectModel(Bank.name) private bankModel: Model<BankDocument>) {}
+  constructor(
+    @InjectModel(Bank.name) private readonly bankModel: Model<BankDocument>,
+  ) {}
 
   async onModuleInit(): Promise<void> {
     const count = await this.bankModel.countDocuments();

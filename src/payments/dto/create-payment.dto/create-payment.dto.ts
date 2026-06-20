@@ -1,1 +1,1 @@
-export class CreatePaymentDto {}
+export { CreatePaymentDto } from '../create-payment.dto';

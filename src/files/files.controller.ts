@@ -21,7 +21,9 @@ export class FilesController {
 
   @Post()
   @UseGuards(JwtAuthGuard)
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }),
+  )
   async upload(
     @UploadedFile() file: Express.Multer.File,
   ): Promise<{ id: string; filename: string }> {
@@ -42,7 +44,8 @@ export class FilesController {
     @Param('id') id: string,
     @Res() res: express.Response,
   ): Promise<void> {
-    const { stream, contentType, filename } = await this.filesService.getStream(id);
+    const { stream, contentType, filename } =
+      await this.filesService.getStream(id);
     // Sanitizar el nombre para prevenir HTTP Response Splitting vía CRLF injection
     const safeFilename = filename.replace(/[\r\n"]/g, '_');
     res.setHeader('Content-Type', contentType);

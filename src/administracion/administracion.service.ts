@@ -19,6 +19,17 @@ export type CreateReciboInput = {
   facturaMimetype?: string;
 };
 
+export type UpdateManyByMesesInput = {
+  buildingId?: Types.ObjectId;
+  piso: number;
+  apartamento: number;
+  meses: number[];
+  montoPago: number;
+  paymentId: string;
+  fechaPago: Date;
+  numeroComprobante?: string;
+};
+
 // Parsear fecha a mediodía UTC para evitar problemas de zona horaria
 // Esto asegura que la fecha se muestre correctamente independientemente de la zona horaria
 function parsearFechaLocal(fechaString: string): Date {
@@ -26,15 +37,24 @@ function parsearFechaLocal(fechaString: string): Date {
   if (partes.length !== 3) {
     // Si no es formato YYYY-MM-DD, intentar parsear directamente
     const parsed = new Date(fechaString);
-    if (isNaN(parsed.getTime())) {
-      throw new Error(`Fecha inválida: ${fechaString}`);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new TypeError(`Fecha inválida: ${fechaString}`);
     }
     // Ajustar a mediodía UTC
-    return new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate(), 12, 0, 0));
+    return new Date(
+      Date.UTC(
+        parsed.getUTCFullYear(),
+        parsed.getUTCMonth(),
+        parsed.getUTCDate(),
+        12,
+        0,
+        0,
+      ),
+    );
   }
-  const año = parseInt(partes[0], 10);
-  const mes = parseInt(partes[1], 10) - 1;
-  const día = parseInt(partes[2], 10);
+  const año = Number.parseInt(partes[0], 10);
+  const mes = Number.parseInt(partes[1], 10) - 1;
+  const día = Number.parseInt(partes[2], 10);
   // Crear fecha a mediodía UTC para evitar problemas de zona horaria
   return new Date(Date.UTC(año, mes, día, 12, 0, 0));
 }
@@ -42,7 +62,8 @@ function parsearFechaLocal(fechaString: string): Date {
 @Injectable()
 export class AdministracionService {
   constructor(
-    @InjectModel(Recibo.name) private reciboModel: Model<ReciboDocument>,
+    @InjectModel(Recibo.name)
+    private readonly reciboModel: Model<ReciboDocument>,
     private readonly filesService: FilesService,
     @Inject(CacheService) private readonly cacheService: CacheService,
     private readonly abonoApartamentoService: AbonoApartamentoService,
@@ -68,7 +89,7 @@ export class AdministracionService {
       montoPagado: 0,
       abonos: [],
     });
-    const result = doc.toObject() as ReciboDocument;
+    const result = doc.toObject();
     await this.cacheService.deletePattern(`recibos:.*`);
     await this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
     return result;
@@ -105,7 +126,10 @@ export class AdministracionService {
     piso?: number;
     apartamento?: number;
   }): Promise<ReciboDocument[]> {
-    const cacheKey = this.cacheService.generateKey('recibos_pendientes_saldo', filters);
+    const cacheKey = this.cacheService.generateKey(
+      'recibos_pendientes_saldo',
+      filters,
+    );
     const cached = await this.cacheService.get<ReciboDocument[]>(cacheKey);
     if (cached) {
       return cached;
@@ -127,13 +151,16 @@ export class AdministracionService {
     return result;
   }
 
-  async findById(id: string, buildingId?: Types.ObjectId): Promise<ReciboDocument | null> {
+  async findById(
+    id: string,
+    buildingId?: Types.ObjectId,
+  ): Promise<ReciboDocument | null> {
     if (!Types.ObjectId.isValid(id)) return null;
     const q: Record<string, unknown> = { _id: id };
     if (buildingId) q.buildingId = buildingId;
     const doc = await this.reciboModel.findOne(q).lean().exec();
     if (!doc) return null;
-    return doc as ReciboDocument;
+    return doc;
   }
 
   /**
@@ -161,7 +188,7 @@ export class AdministracionService {
       recibosPendientes = list.filter((r) => {
         const montoPagado = r.montoPagado || 0;
         return montoPagado < r.montoUsd;
-      }) as ReciboDocument[];
+      });
     } else if (params.meses && params.meses.length > 0) {
       const q: Record<string, unknown> = {
         piso: params.piso,
@@ -173,7 +200,7 @@ export class AdministracionService {
       recibosPendientes = list.filter((r) => {
         const montoPagado = r.montoPagado || 0;
         return montoPagado < r.montoUsd;
-      }) as ReciboDocument[];
+      });
     } else {
       return { count: 0, ids: [] };
     }
@@ -183,17 +210,31 @@ export class AdministracionService {
       const montoPagado = r.montoPagado || 0;
       return sum + (r.montoUsd - montoPagado);
     }, 0);
-    const abono = await this.abonoApartamentoService.getMonto(params.piso, params.apartamento, params.buildingId);
+    const abono = await this.abonoApartamentoService.getMonto(
+      params.piso,
+      params.apartamento,
+      params.buildingId,
+    );
     const amountFromPayment = Math.min(params.montoPago, totalDebt);
     const excess = Math.max(0, params.montoPago - totalDebt);
     const amountFromAbono = Math.min(abono, totalDebt - amountFromPayment);
     const totalToApply = amountFromPayment + amountFromAbono;
 
     if (excess > 0) {
-      await this.abonoApartamentoService.agregar(params.piso, params.apartamento, excess, params.buildingId);
+      await this.abonoApartamentoService.agregar(
+        params.piso,
+        params.apartamento,
+        excess,
+        params.buildingId,
+      );
     }
     if (amountFromAbono > 0) {
-      await this.abonoApartamentoService.consumir(params.piso, params.apartamento, amountFromAbono, params.buildingId);
+      await this.abonoApartamentoService.consumir(
+        params.piso,
+        params.apartamento,
+        amountFromAbono,
+        params.buildingId,
+      );
     }
 
     let result: { count: number; ids: string[] };
@@ -207,31 +248,30 @@ export class AdministracionService {
         params.buildingId,
       );
     } else {
-      const { count, ids } = await this.updateManyByMeses(
-        params.piso,
-        params.apartamento,
-        params.meses!,
-        totalToApply,
-        params.paymentId,
-        params.fechaPago,
-        params.numeroComprobante,
-        params.buildingId,
-      );
+      const { count, ids } = await this.updateManyByMeses({
+        buildingId: params.buildingId,
+        piso: params.piso,
+        apartamento: params.apartamento,
+        meses: params.meses!,
+        montoPago: totalToApply,
+        paymentId: params.paymentId,
+        fechaPago: params.fechaPago,
+        numeroComprobante: params.numeroComprobante,
+      });
       result = { count, ids };
     }
     return result;
   }
 
   async updateEstado(id: string, estado: 'pagado'): Promise<ReciboDocument> {
-    const doc = await this.reciboModel.findByIdAndUpdate(
-      id,
-      { estado },
-      { new: true },
-    ).lean().exec();
+    const doc = await this.reciboModel
+      .findByIdAndUpdate(id, { estado }, { new: true })
+      .lean()
+      .exec();
     if (!doc) {
       throw new NotFoundException('Recibo no encontrado');
     }
-    const result = doc as ReciboDocument;
+    const result = doc;
     await this.cacheService.deletePattern(`recibos:.*`);
     await this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
     return result;
@@ -251,7 +291,7 @@ export class AdministracionService {
     const montoPagadoActual = recibo.montoPagado || 0;
     const montoPendiente = recibo.montoUsd - montoPagadoActual;
     if (montoPendiente <= 0) {
-      return recibo.toObject() as ReciboDocument;
+      return recibo.toObject();
     }
     const montoAAplicar = Math.min(monto, montoPendiente);
     const nuevoAbono: Abono = {
@@ -271,22 +311,20 @@ export class AdministracionService {
     } else {
       updateData.estado = 'pendiente';
     }
-    const doc = await this.reciboModel.findByIdAndUpdate(
-      reciboId,
-      updateData,
-      { new: true },
-    ).lean().exec();
+    const doc = await this.reciboModel
+      .findByIdAndUpdate(reciboId, updateData, { new: true })
+      .lean()
+      .exec();
     if (!doc) {
       throw new NotFoundException('Recibo no encontrado');
     }
-    const result = doc as ReciboDocument;
+    const result = doc;
     await this.cacheService.deletePattern(`recibos:.*`);
     await this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
     return result;
   }
 
   // Método helper privado para procesar abonos en memoria y preparar bulkWrite
-  // Complejidad: O(n) - procesa recibos una vez y usa Map para acceso O(1)
   private procesarAbonosBulk(
     recibos: ReciboDocument[],
     montoPago: number,
@@ -294,26 +332,42 @@ export class AdministracionService {
     fechaPago: Date,
     numeroComprobante?: string,
   ): {
-    bulkOps: Array<{ updateOne: { filter: { _id: Types.ObjectId }; update: any } }>;
+    bulkOps: Array<{
+      updateOne: {
+        filter: { _id: Types.ObjectId };
+        update: {
+          $set: {
+            montoPagado: number;
+            abonos: Abono[];
+            estado: string;
+          };
+        };
+      };
+    }>;
     ids: string[];
     abonosRegistrados: number;
     recibosCompletos: Set<string>;
   } {
-    const bulkOps: Array<{ updateOne: { filter: { _id: Types.ObjectId }; update: any } }> = [];
+    const bulkOps: Array<{
+      updateOne: {
+        filter: { _id: Types.ObjectId };
+        update: {
+          $set: {
+            montoPagado: number;
+            abonos: Abono[];
+            estado: string;
+          };
+        };
+      };
+    }> = [];
     const ids: string[] = [];
     let abonosRegistrados = 0;
     const recibosCompletos = new Set<string>();
     let montoRestante = montoPago;
-    // Map para acceso O(1) a recibos por ID
-    const recibosMap = new Map<string, ReciboDocument>();
-    recibos.forEach((recibo) => {
-      const reciboId = (recibo._id as Types.ObjectId).toString();
-      recibosMap.set(reciboId, recibo);
-    });
     // Procesar recibos en orden hasta agotar el monto
     for (const recibo of recibos) {
       if (montoRestante <= 0) break;
-      const reciboId = (recibo._id as Types.ObjectId).toString();
+      const reciboId = recibo._id.toString();
       const montoPagado = recibo.montoPagado || 0;
       const montoPendiente = recibo.montoUsd - montoPagado;
       if (montoPendiente <= 0) continue;
@@ -326,7 +380,7 @@ export class AdministracionService {
       };
       const nuevoMontoPagado = montoPagado + montoAAplicar;
       const abonosActualizados = [...(recibo.abonos || []), nuevoAbono];
-      const updateData: any = {
+      const updateData = {
         $set: {
           montoPagado: nuevoMontoPagado,
           abonos: abonosActualizados,
@@ -335,7 +389,7 @@ export class AdministracionService {
       };
       bulkOps.push({
         updateOne: {
-          filter: { _id: recibo._id as Types.ObjectId },
+          filter: { _id: recibo._id },
           update: updateData,
         },
       });
@@ -352,22 +406,16 @@ export class AdministracionService {
   }
 
   async updateManyByMeses(
-    piso: number,
-    apartamento: number,
-    meses: number[],
-    montoPago: number,
-    paymentId: string,
-    fechaPago: Date,
-    numeroComprobante?: string,
-    buildingId?: Types.ObjectId,
+    input: UpdateManyByMesesInput,
   ): Promise<{ count: number; ids: string[]; abonosRegistrados: number }> {
     // 1 query: O(n) - obtener todos los recibos de una vez
-    const q: Record<string, unknown> = { piso, apartamento, meses: { $in: meses } };
-    if (buildingId) q.buildingId = buildingId;
-    const recibos = await this.reciboModel
-      .find(q)
-      .lean()
-      .exec();
+    const q: Record<string, unknown> = {
+      piso: input.piso,
+      apartamento: input.apartamento,
+      meses: { $in: input.meses },
+    };
+    if (input.buildingId) q.buildingId = input.buildingId;
+    const recibos = await this.reciboModel.find(q).lean().exec();
     if (recibos.length === 0) {
       return { count: 0, ids: [], abonosRegistrados: 0 };
     }
@@ -379,13 +427,14 @@ export class AdministracionService {
       return { count: 0, ids: [], abonosRegistrados: 0 };
     }
     // Procesar en memoria: O(n)
-    const { bulkOps, ids, abonosRegistrados, recibosCompletos } = this.procesarAbonosBulk(
-      recibosPendientes,
-      montoPago,
-      paymentId,
-      fechaPago,
-      numeroComprobante,
-    );
+    const { bulkOps, ids, abonosRegistrados, recibosCompletos } =
+      this.procesarAbonosBulk(
+        recibosPendientes,
+        input.montoPago,
+        input.paymentId,
+        input.fechaPago,
+        input.numeroComprobante,
+      );
     // 1 operación bulk: O(n) - actualizar todos los recibos de una vez
     if (bulkOps.length > 0) {
       await this.reciboModel.bulkWrite(bulkOps);
@@ -413,10 +462,7 @@ export class AdministracionService {
     // Incluir buildingId para prevenir modificación cruzada entre tenants
     const q: Record<string, unknown> = { _id: { $in: objectIds } };
     if (buildingId) q.buildingId = buildingId;
-    const recibos = await this.reciboModel
-      .find(q)
-      .lean()
-      .exec();
+    const recibos = await this.reciboModel.find(q).lean().exec();
     if (recibos.length === 0) {
       return { count: 0, ids: [] };
     }

@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Payment, paymentdocument } from './schemas/payment.schema';
@@ -6,21 +11,31 @@ import { FilesService } from '../files/files.service';
 import { AdministracionService } from '../administracion/administracion.service';
 import { CacheService } from '../common/cache.service';
 import { OcrService } from '../ocr/ocr.service';
-import * as crypto from 'crypto';
+import type { ComprobanteExtractionDto } from '../ocr/dto/comprobante-extraction.dto';
+import * as crypto from 'node:crypto';
 
 // Parsear fecha a mediodía UTC para evitar problemas de zona horaria
 function parsearFechaPago(fechaString: string): Date {
   const partes = fechaString.split('-');
   if (partes.length !== 3) {
     const parsed = new Date(fechaString);
-    if (isNaN(parsed.getTime())) {
-      throw new Error(`Fecha inválida: ${fechaString}`);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new TypeError(`Fecha inválida: ${fechaString}`);
     }
-    return new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate(), 12, 0, 0));
+    return new Date(
+      Date.UTC(
+        parsed.getUTCFullYear(),
+        parsed.getUTCMonth(),
+        parsed.getUTCDate(),
+        12,
+        0,
+        0,
+      ),
+    );
   }
-  const año = parseInt(partes[0], 10);
-  const mes = parseInt(partes[1], 10) - 1;
-  const día = parseInt(partes[2], 10);
+  const año = Number.parseInt(partes[0], 10);
+  const mes = Number.parseInt(partes[1], 10) - 1;
+  const día = Number.parseInt(partes[2], 10);
   return new Date(Date.UTC(año, mes, día, 12, 0, 0));
 }
 
@@ -44,7 +59,8 @@ export type CreatePaymentInput = {
 @Injectable()
 export class PaymentsService {
   constructor(
-    @InjectModel(Payment.name) private paymentModel: Model<paymentdocument>,
+    @InjectModel(Payment.name)
+    private readonly paymentModel: Model<paymentdocument>,
     private readonly filesService: FilesService,
     @Inject(forwardRef(() => AdministracionService))
     private readonly administracionService: AdministracionService,
@@ -59,8 +75,10 @@ export class PaymentsService {
       mimetype: input.comprobanteMimetype,
     });
     // Si se proporcionan recibosIds, guardarlos en el pago para usarlos cuando se acepte
-    const recibosIdsObjectIds = input.recibosIds?.map((id) => new Types.ObjectId(id));
-    
+    const recibosIdsObjectIds = input.recibosIds?.map(
+      (id) => new Types.ObjectId(id),
+    );
+
     const doc = await this.paymentModel.create({
       buildingId: input.buildingId,
       piso: input.piso,
@@ -80,15 +98,27 @@ export class PaymentsService {
 
     // --- Inicia Lógica de Aprendizaje OCR ---
     try {
-      const fileHash = crypto.createHash('sha256').update(input.comprobanteBuffer).digest('hex');
-      const prediccionOcr = await this.cacheService.get<any>(`ocr_pred:${fileHash}`);
+      const fileHash = crypto
+        .createHash('sha256')
+        .update(input.comprobanteBuffer)
+        .digest('hex');
+      const prediccionOcr = await this.cacheService.get<
+        Pick<
+          ComprobanteExtractionDto,
+          'banco' | 'montoBs' | 'fechaPago' | 'numeroComprobante'
+        >
+      >(`ocr_pred:${fileHash}`);
       if (prediccionOcr) {
-        await this.ocrService.registrarOcrLog(fileId.toString(), prediccionOcr, {
-          banco: input.banco,
-          montoBs: input.montoBs,
-          fechaPago: input.fechaPago,
-          numeroComprobante: input.numeroComprobante,
-        });
+        await this.ocrService.registrarOcrLog(
+          fileId.toString(),
+          prediccionOcr,
+          {
+            banco: input.banco,
+            montoBs: input.montoBs,
+            fechaPago: input.fechaPago,
+            numeroComprobante: input.numeroComprobante,
+          },
+        );
         await this.cacheService.delete(`ocr_pred:${fileHash}`); // Limpiar ya fue consumido
       }
     } catch (err) {
@@ -96,11 +126,10 @@ export class PaymentsService {
     }
     // --- Fin Lógica de Aprendizaje OCR ---
 
-    const result = doc.toObject() as paymentdocument;
+    const result = doc.toObject();
     await this.cacheService.deletePattern(`payments:.*`);
     return result;
   }
-
 
   async findAll(filters: {
     buildingId?: Types.ObjectId;
@@ -128,13 +157,16 @@ export class PaymentsService {
     return result;
   }
 
-  async findById(id: string, buildingId?: Types.ObjectId): Promise<paymentdocument | null> {
+  async findById(
+    id: string,
+    buildingId?: Types.ObjectId,
+  ): Promise<paymentdocument | null> {
     if (!Types.ObjectId.isValid(id)) return null;
     const q: Record<string, unknown> = { _id: id };
     if (buildingId) q.buildingId = buildingId;
     const doc = await this.paymentModel.findOne(q).lean().exec();
     if (!doc) return null;
-    return doc as paymentdocument;
+    return doc;
   }
 
   async updateEstado(
@@ -142,21 +174,21 @@ export class PaymentsService {
     estado: 'aceptado' | 'rechazado',
     buildingId: Types.ObjectId,
   ): Promise<paymentdocument> {
-    const doc = await this.paymentModel.findOneAndUpdate(
-      { _id: id, buildingId },
-      { estado },
-      { new: true },
-    ).lean().exec();
+    const doc = await this.paymentModel
+      .findOneAndUpdate({ _id: id, buildingId }, { estado }, { new: true })
+      .lean()
+      .exec();
     if (!doc) {
       throw new NotFoundException('Pago no encontrado');
     }
-    const pagoDoc = doc as unknown as paymentdocument;
+    const pagoDoc = doc;
     if (estado === 'aceptado') {
-      const paymentId = (doc._id as Types.ObjectId).toString();
-      const fechaPago = pagoDoc.fechaPago instanceof Date 
-        ? pagoDoc.fechaPago 
-        : new Date(pagoDoc.fechaPago);
-      
+      const paymentId = doc._id.toString();
+      const fechaPago =
+        pagoDoc.fechaPago instanceof Date
+          ? pagoDoc.fechaPago
+          : new Date(pagoDoc.fechaPago);
+
       const { ids } = await this.administracionService.applyPagoAceptado({
         buildingId: pagoDoc.buildingId,
         piso: pagoDoc.piso,
@@ -164,20 +196,18 @@ export class PaymentsService {
         recibosIds: pagoDoc.recibosPagados?.length
           ? pagoDoc.recibosPagados.map((id) => id.toString())
           : undefined,
-        meses: !pagoDoc.recibosPagados?.length ? (pagoDoc.meses || []) : undefined,
+        meses: pagoDoc.recibosPagados?.length ? undefined : pagoDoc.meses || [],
         montoPago: pagoDoc.montoUsd,
         paymentId,
         fechaPago,
         numeroComprobante: pagoDoc.numeroComprobante,
       });
-      
+
       if (ids.length > 0) {
         const recibosIds = ids.map((id) => new Types.ObjectId(id));
-        await this.paymentModel.findByIdAndUpdate(
-          id,
-          { recibosPagados: recibosIds },
-          { new: true },
-        ).exec();
+        await this.paymentModel
+          .findByIdAndUpdate(id, { recibosPagados: recibosIds }, { new: true })
+          .exec();
       }
     }
     await this.cacheService.deletePattern(`payments:.*`);

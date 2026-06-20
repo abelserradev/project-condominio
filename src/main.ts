@@ -12,10 +12,9 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
   });
-  
   // Cookie parser necesario para CSRF
   app.use(cookieParser());
-  
+
   // Helmet para headers de seguridad HTTP
   const helmetConfig: Parameters<typeof helmet>[0] = {
     crossOriginResourcePolicy: { policy: 'cross-origin' },
@@ -59,7 +58,12 @@ async function bootstrap() {
   );
 
   const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
-  const allowedOrigins = frontendUrl.split(',').map((url) => url.trim()).filter(Boolean);
+  const allowedOrigins = new Set(
+    frontendUrl
+      .split(',')
+      .map((url) => url.trim())
+      .filter(Boolean),
+  );
 
   const isPrivateNetworkOrigin = (o: string) => {
     try {
@@ -78,36 +82,52 @@ async function bootstrap() {
     }
   };
 
+  const validarOrigenCors = (
+    origin: string | undefined,
+    callback: (err: Error | null, allow?: boolean) => void,
+  ): void => {
+    // Peticiones sin Origin: favicon, health checks, curl, acceso directo
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    if (allowedOrigins.has(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    if (
+      isDevelopment &&
+      (origin.startsWith('http://localhost:') ||
+        origin.startsWith('http://127.0.0.1:'))
+    ) {
+      callback(null, true);
+      return;
+    }
+
+    if (isDevelopment && isPrivateNetworkOrigin(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    // No hay fallback permisivo — cualquier origen no reconocido queda bloqueado
+    // incluso en desarrollo, para evitar que NODE_ENV=development en prod abra el CORS
+    callback(new Error('No permitido por CORS'));
+  };
+
   app.enableCors({
-    origin: (origin, callback) => {
-      // Peticiones sin Origin: favicon, health checks, curl, acceso directo
-      if (!origin) {
-        callback(null, true);
-        return;
-      }
-
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-        return;
-      }
-
-      if (isDevelopment && (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:'))) {
-        callback(null, true);
-        return;
-      }
-
-      if (isDevelopment && isPrivateNetworkOrigin(origin)) {
-        callback(null, true);
-        return;
-      }
-
-      // No hay fallback permisivo — cualquier origen no reconocido queda bloqueado
-      // incluso en desarrollo, para evitar que NODE_ENV=development en prod abra el CORS
-      callback(new Error('No permitido por CORS'));
-    },
+    origin: validarOrigenCors,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With', 'X-CSRF-Token', 'x-building-slug'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Accept',
+      'X-Requested-With',
+      'X-CSRF-Token',
+      'x-building-slug',
+    ],
     exposedHeaders: ['Authorization'],
   });
 

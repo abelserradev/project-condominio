@@ -1,8 +1,13 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CacheService } from '../common/cache.service';
 
 const DOLAR_OFICIAL_URL = 'https://ve.dolarapi.com/v1/dolares/oficial';
-const DOLAR_HISTORICOS_URL = 'https://ve.dolarapi.com/v1/historicos/dolares/oficial';
+const DOLAR_HISTORICOS_URL =
+  'https://ve.dolarapi.com/v1/historicos/dolares/oficial';
 const TTL_MS = 26 * 60 * 60 * 1000; // 26h - cubre el día completo Venezuela
 const TTL_HISTORICO_MS = 7 * 24 * 60 * 60 * 1000; // 7 días - datos históricos no cambian
 
@@ -30,7 +35,9 @@ export type TasaBcvResult = { promedio: number; fechaActualizacion?: string };
 
 function getVenezuelaDateString(): string {
   const now = new Date();
-  const venezuela = new Date(now.getTime() + (now.getTimezoneOffset() - 240) * 60 * 1000);
+  const venezuela = new Date(
+    now.getTime() + (now.getTimezoneOffset() - 240) * 60 * 1000,
+  );
   return venezuela.toISOString().slice(0, 10);
 }
 
@@ -42,7 +49,7 @@ function restarDias(fecha: string, dias: number): string {
 
 @Injectable()
 export class TasaBcvService {
-  private pendingPromises = new Map<string, Promise<TasaBcvResult>>();
+  private readonly pendingPromises = new Map<string, Promise<TasaBcvResult>>();
 
   constructor(private readonly cacheService: CacheService) {}
 
@@ -86,7 +93,9 @@ export class TasaBcvService {
    */
   async getTasaPorFecha(fecha: string): Promise<TasaBcvResult> {
     if (!FECHA_REGEX.test(fecha)) {
-      throw new BadRequestException('Formato de fecha inválido. Use YYYY-MM-DD');
+      throw new BadRequestException(
+        'Formato de fecha inválido. Use YYYY-MM-DD',
+      );
     }
 
     const key = `tasa-bcv:fecha:${fecha}`;
@@ -111,7 +120,9 @@ export class TasaBcvService {
     return fetchPromise;
   }
 
-  private async fetchTasaHistoricoPorFecha(fecha: string): Promise<TasaBcvResult> {
+  private async fetchTasaHistoricoPorFecha(
+    fecha: string,
+  ): Promise<TasaBcvResult> {
     const res = await fetch(DOLAR_HISTORICOS_URL);
     if (!res.ok) throw new Error('Error al obtener histórico de tasa BCV');
     const data = (await res.json()) as TasaBcvHistoricoItem[];
@@ -126,6 +137,8 @@ export class TasaBcvService {
       }
       f = restarDias(f, 1);
     }
-    throw new NotFoundException(`No hay tasa BCV registrada para la fecha ${fecha}`);
+    throw new NotFoundException(
+      `No hay tasa BCV registrada para la fecha ${fecha}`,
+    );
   }
 }

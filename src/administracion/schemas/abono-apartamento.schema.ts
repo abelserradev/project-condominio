@@ -22,5 +22,9 @@ export class AbonoApartamento {
   monto: number;
 }
 
-export const AbonoApartamentoSchema = SchemaFactory.createForClass(AbonoApartamento);
-AbonoApartamentoSchema.index({ buildingId: 1, piso: 1, apartamento: 1 }, { unique: true });
+export const AbonoApartamentoSchema =
+  SchemaFactory.createForClass(AbonoApartamento);
+AbonoApartamentoSchema.index(
+  { buildingId: 1, piso: 1, apartamento: 1 },
+  { unique: true },
+);

@@ -14,7 +14,9 @@ export class ImageCompressionService {
     mimetype?: string,
   ): Promise<{ buffer: Buffer; mimetype: string }> {
     if (buffer.length > MAX_FILE_SIZE_BYTES) {
-      throw new Error(`El archivo excede el tamaño máximo de ${MAX_FILE_SIZE_MB}MB`);
+      throw new Error(
+        `El archivo excede el tamaño máximo de ${MAX_FILE_SIZE_MB}MB`,
+      );
     }
 
     const isImage = mimetype?.startsWith('image/');
@@ -43,16 +45,35 @@ export class ImageCompressionService {
         .toFormat(outputFormat, { quality: QUALITY })
         .toBuffer();
 
-      const finalMimetype = outputFormat === 'jpeg' ? 'image/jpeg' : outputFormat === 'png' ? 'image/png' : mimetype ?? 'image/jpeg';
+      const finalMimetype = this.resolveCompressedMimetype(
+        outputFormat,
+        mimetype,
+      );
 
       return {
         buffer: compressedBuffer,
         mimetype: finalMimetype,
       };
     } catch (err) {
-      console.error('[ImageCompressionService] Error al comprimir imagen:', err);
+      console.error(
+        '[ImageCompressionService] Error al comprimir imagen:',
+        err,
+      );
       return { buffer, mimetype: mimetype ?? 'application/octet-stream' };
     }
+  }
+
+  private resolveCompressedMimetype(
+    outputFormat: 'jpeg' | 'png' | 'webp',
+    mimetype?: string,
+  ): string {
+    if (outputFormat === 'jpeg') {
+      return 'image/jpeg';
+    }
+    if (outputFormat === 'png') {
+      return 'image/png';
+    }
+    return mimetype ?? 'image/jpeg';
   }
 
   private getOutputFormat(mimetype?: string): 'jpeg' | 'png' | 'webp' {
@@ -63,7 +84,9 @@ export class ImageCompressionService {
 
   validateFileSize(buffer: Buffer): void {
     if (buffer.length > MAX_FILE_SIZE_BYTES) {
-      throw new Error(`El archivo excede el tamaño máximo de ${MAX_FILE_SIZE_MB}MB`);
+      throw new Error(
+        `El archivo excede el tamaño máximo de ${MAX_FILE_SIZE_MB}MB`,
+      );
     }
   }
 }

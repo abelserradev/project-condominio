@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { Types } from 'mongoose';
 import { BuildingsService } from '../buildings/buildings.service';
 import { ApartmentsService } from '../apartments/apartments.service';
 import { UserService } from '../user/user.service';
@@ -23,7 +22,7 @@ export class OnboardingService {
     });
 
     await this.apartmentsService.seedForBuilding(
-      building._id as Types.ObjectId,
+      building._id,
       dto.totalPisos,
       dto.apartamentosPorPiso,
     );
@@ -31,11 +30,15 @@ export class OnboardingService {
     await this.userService.createAdminForBuilding({
       usuario: dto.adminUsuario,
       password: dto.adminPassword,
-      buildingId: building._id as Types.ObjectId,
+      buildingId: building._id,
     });
 
     const response = this.buildingsService.buildRegisterResponse(building);
-    this.buildingsService.logWelcomeEmail(building.slug, dto.adminUsuario, response.portalUrl);
+    this.buildingsService.logWelcomeEmail(
+      building.slug,
+      dto.adminUsuario,
+      response.portalUrl,
+    );
 
     return response;
   }

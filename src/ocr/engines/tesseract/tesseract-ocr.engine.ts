@@ -1,6 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createWorker } from 'tesseract.js';
-import type { IOcrEngine } from '../../interfaces/ocr-engine.interface';
+import type {
+  ExtractionOptions,
+  IOcrEngine,
+} from '../../interfaces/ocr-engine.interface';
 import type { ExtractionResult } from '../../interfaces/extraction-result.interface';
 
 /**
@@ -11,7 +14,15 @@ import type { ExtractionResult } from '../../interfaces/extraction-result.interf
 export class TesseractOcrEngine implements IOcrEngine {
   private readonly logger = new Logger(TesseractOcrEngine.name);
 
-  async extract(imageBuffer: Buffer, _options?: unknown): Promise<ExtractionResult> {
+  async extract(
+    imageBuffer: Buffer,
+    options?: ExtractionOptions,
+  ): Promise<ExtractionResult> {
+    if (options?.prompt ?? options?.schema) {
+      this.logger.debug(
+        'Opciones LLM ignoradas en motor Tesseract (extracción local + regex)',
+      );
+    }
     const worker = await createWorker('spa+eng', 1, {
       logger: () => {},
     });

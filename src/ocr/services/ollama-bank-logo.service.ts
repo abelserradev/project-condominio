@@ -16,10 +16,10 @@ export class OllamaBankLogoService {
     const base64 = imageBuffer.toString('base64');
 
     try {
-      const nombre = await withRetry(
-        () => this.callOllama(base64),
-        { maxAttempts: 2, delays: [1000, 2000] },
-      );
+      const nombre = await withRetry(() => this.callOllama(base64), {
+        maxAttempts: 2,
+        delays: [1000, 2000],
+      });
       return nombre;
     } catch (err) {
       this.logger.warn(
@@ -58,7 +58,9 @@ export class OllamaBankLogoService {
         throw new Error(`Ollama ${response.status}: ${body.slice(0, 150)}`);
       }
 
-      const data = (await response.json()) as { message?: { content?: string } };
+      const data = (await response.json()) as {
+        message?: { content?: string };
+      };
       const raw = (data?.message?.content ?? '').trim();
       if (!raw) return null;
 

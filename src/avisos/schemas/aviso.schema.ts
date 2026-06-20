@@ -1,10 +1,14 @@
-import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
-import { HydratedDocument, Types } from "mongoose";
-
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { HydratedDocument, Types } from 'mongoose';
 
 export type AvisoDocument = HydratedDocument<Aviso>;
 
-export const Aviso_tipos = ['evento', 'inconveniente', 'aviso_general', 'comunicado_oficial'] as const;
+export const Aviso_tipos = [
+  'evento',
+  'inconveniente',
+  'aviso_general',
+  'comunicado_oficial',
+] as const;
 export type Aviso_tipo = (typeof Aviso_tipos)[number];
 
 export const Aviso_prioridades = ['alta', 'media', 'baja'] as const;

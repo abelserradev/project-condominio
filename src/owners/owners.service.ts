@@ -13,18 +13,26 @@ import { Owner, OwnerDocument } from './schemas/owner.schema';
 import { CreateOwnerDto } from './dto/create-owner.dto';
 import { UpdateOwnerDto } from './dto/update-owner.dto';
 import { validatePasswordStrength } from '../common/utils/password.util';
-import { Apartment, apartmentschema, apartmentdocument } from '../apartments/schemas/apartment.schema';
+import {
+  Apartment,
+  apartmentdocument,
+} from '../apartments/schemas/apartment.schema';
 
 @Injectable()
 export class OwnersService {
   private readonly logger = new Logger(OwnersService.name);
 
   constructor(
-    @InjectModel(Owner.name) private ownerModel: Model<OwnerDocument>,
-    @InjectModel(Apartment.name) private apartmentModel: Model<apartmentdocument>,
+    @InjectModel(Owner.name)
+    private readonly ownerModel: Model<OwnerDocument>,
+    @InjectModel(Apartment.name)
+    private readonly apartmentModel: Model<apartmentdocument>,
   ) {}
 
-  async findByEmail(email: string, buildingId: Types.ObjectId): Promise<OwnerDocument | null> {
+  async findByEmail(
+    email: string,
+    buildingId: Types.ObjectId,
+  ): Promise<OwnerDocument | null> {
     return this.ownerModel
       .findOne({ email: email.toLowerCase().trim(), buildingId, activo: true })
       .lean()
@@ -36,21 +44,37 @@ export class OwnersService {
     apartamento: number,
     buildingId: Types.ObjectId,
   ): Promise<OwnerDocument | null> {
-    return this.ownerModel.findOne({ piso, apartamento, buildingId, activo: true }).lean().exec();
+    return this.ownerModel
+      .findOne({ piso, apartamento, buildingId, activo: true })
+      .lean()
+      .exec();
   }
 
-  async findAll(buildingId: Types.ObjectId, incluirInactivos = false): Promise<OwnerDocument[]> {
+  async findAll(
+    buildingId: Types.ObjectId,
+    incluirInactivos = false,
+  ): Promise<OwnerDocument[]> {
     const q: Record<string, unknown> = { buildingId };
     if (!incluirInactivos) q.activo = true;
-    return this.ownerModel.find(q).sort({ piso: 1, apartamento: 1, nombre: 1 }).lean().exec();
+    return this.ownerModel
+      .find(q)
+      .sort({ piso: 1, apartamento: 1, nombre: 1 })
+      .lean()
+      .exec();
   }
 
-  async findById(id: string, buildingId: Types.ObjectId): Promise<OwnerDocument | null> {
+  async findById(
+    id: string,
+    buildingId: Types.ObjectId,
+  ): Promise<OwnerDocument | null> {
     if (!Types.ObjectId.isValid(id)) return null;
     return this.ownerModel.findOne({ _id: id, buildingId }).lean().exec();
   }
 
-  async create(buildingId: Types.ObjectId, dto: CreateOwnerDto): Promise<OwnerDocument> {
+  async create(
+    buildingId: Types.ObjectId,
+    dto: CreateOwnerDto,
+  ): Promise<OwnerDocument> {
     validatePasswordStrength(dto.password);
 
     const apt = await this.apartmentModel
@@ -64,9 +88,13 @@ export class OwnersService {
     }
 
     const emailNorm = dto.email.toLowerCase().trim();
-    const duplicado = await this.ownerModel.findOne({ buildingId, email: emailNorm }).lean();
+    const duplicado = await this.ownerModel
+      .findOne({ buildingId, email: emailNorm })
+      .lean();
     if (duplicado) {
-      throw new ConflictException('Ya hay un propietario registrado con ese correo');
+      throw new ConflictException(
+        'Ya hay un propietario registrado con ese correo',
+      );
     }
 
     const passwordHash = await bcrypt.hash(dto.password, 10);
@@ -84,12 +112,21 @@ export class OwnersService {
       activo: true,
     });
 
-    // TODO: enviar invitación real con Resend cuando esté configurado SMTP
-    this.logger.log(
-      `[invitación] Nuevo ${dto.rol} "${dto.nombre}" <${emailNorm}> | apt ${idUnico} | contraseña inicial establecida`,
-    );
+    this.logOwnerInvitation(dto.rol, dto.nombre.trim(), emailNorm, idUnico);
 
-    return doc.toObject() as OwnerDocument;
+    return doc.toObject();
+  }
+
+  /** Sin SMTP/Resend configurado: dejamos trazabilidad en log en lugar de correo real. */
+  private logOwnerInvitation(
+    rol: string,
+    nombre: string,
+    email: string,
+    idUnico: string,
+  ): void {
+    this.logger.log(
+      `[invitación] Nuevo ${rol} "${nombre}" <${email}> | apt ${idUnico} | contraseña inicial establecida`,
+    );
   }
 
   async update(
@@ -97,7 +134,9 @@ export class OwnersService {
     buildingId: Types.ObjectId,
     dto: UpdateOwnerDto,
   ): Promise<OwnerDocument> {
-    const existente = await this.ownerModel.findOne({ _id: id, buildingId }).exec();
+    const existente = await this.ownerModel
+      .findOne({ _id: id, buildingId })
+      .exec();
     if (!existente) throw new NotFoundException('Propietario no encontrado');
 
     const piso = dto.piso ?? existente.piso;
@@ -109,7 +148,9 @@ export class OwnersService {
         .lean()
         .exec();
       if (!apt) {
-        throw new BadRequestException(`No existe el apartamento P${piso}-A${apartamento}`);
+        throw new BadRequestException(
+          `No existe el apartamento P${piso}-A${apartamento}`,
+        );
       }
     }
 
@@ -118,7 +159,10 @@ export class OwnersService {
       const otro = await this.ownerModel
         .findOne({ buildingId, email: emailNorm, _id: { $ne: id } })
         .lean();
-      if (otro) throw new ConflictException('Ese correo ya está en uso en este edificio');
+      if (otro)
+        throw new ConflictException(
+          'Ese correo ya está en uso en este edificio',
+        );
       existente.email = emailNorm;
     }
 
@@ -135,10 +179,13 @@ export class OwnersService {
     }
 
     await existente.save();
-    return existente.toObject() as OwnerDocument;
+    return existente.toObject();
   }
 
-  async deactivate(id: string, buildingId: Types.ObjectId): Promise<OwnerDocument> {
+  async deactivate(
+    id: string,
+    buildingId: Types.ObjectId,
+  ): Promise<OwnerDocument> {
     const updated = await this.ownerModel
       .findOneAndUpdate(
         { _id: id, buildingId },
@@ -148,7 +195,7 @@ export class OwnersService {
       .lean()
       .exec();
     if (!updated) throw new NotFoundException('Propietario no encontrado');
-    return updated as OwnerDocument;
+    return updated;
   }
 
   async changePassword(
@@ -159,7 +206,9 @@ export class OwnersService {
   ): Promise<void> {
     validatePasswordStrength(contraseñaNueva);
 
-    const owner = await this.ownerModel.findOne({ _id: ownerId, buildingId, activo: true }).exec();
+    const owner = await this.ownerModel
+      .findOne({ _id: ownerId, buildingId, activo: true })
+      .exec();
     if (!owner) throw new NotFoundException('Usuario no encontrado');
 
     const valid = await bcrypt.compare(contraseñaActual, owner.passwordHash);

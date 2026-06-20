@@ -1,6 +1,12 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Logger,
+} from '@nestjs/common';
 import type { Request, Response } from 'express';
-import csurf from 'csurf';
+import { crearProteccionCsrf } from '../utils/csrf-protection.util';
 
 /**
  * Guard para protección CSRF
@@ -9,7 +15,7 @@ import csurf from 'csurf';
 @Injectable()
 export class CsrfGuard implements CanActivate {
   private readonly logger = new Logger(CsrfGuard.name);
-  private csrfProtection = csurf({ cookie: true });
+  private readonly csrfProtection = crearProteccionCsrf();
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
@@ -21,9 +27,17 @@ export class CsrfGuard implements CanActivate {
     }
 
     return new Promise((resolve, reject) => {
-      this.csrfProtection(request, response, (err) => {
+      this.csrfProtection(request, response, (err: unknown) => {
         if (err) {
-          this.logger.log(`[DEBUG] CSRF rechazado: ${err?.message ?? String(err)}. Header X-CSRF-Token presente: ${!!request.headers['x-csrf-token']}`);
+          let errMsg = 'Error CSRF desconocido';
+          if (err instanceof Error) {
+            errMsg = err.message;
+          } else if (typeof err === 'string') {
+            errMsg = err;
+          }
+          this.logger.log(
+            `[DEBUG] CSRF rechazado: ${errMsg}. Header X-CSRF-Token presente: ${!!request.headers['x-csrf-token']}`,
+          );
           reject(new ForbiddenException('Token CSRF inválido o faltante'));
         } else {
           this.logger.log(`[DEBUG] CSRF OK`);

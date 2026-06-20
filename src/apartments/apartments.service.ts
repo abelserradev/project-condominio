@@ -8,7 +8,8 @@ import { Apartment, apartmentdocument } from './schemas/apartment.schema';
 @Injectable()
 export class ApartmentsService {
   constructor(
-    @InjectModel(Apartment.name) private apartmentModel: Model<apartmentdocument>,
+    @InjectModel(Apartment.name)
+    private readonly apartmentModel: Model<apartmentdocument>,
   ) {}
 
   async findAll(buildingId?: Types.ObjectId): Promise<apartmentdocument[]> {
@@ -17,27 +18,47 @@ export class ApartmentsService {
     return this.apartmentModel.find(q).sort({ piso: 1, numero: 1 }).lean();
   }
 
-  async findByPiso(piso: number, buildingId?: Types.ObjectId): Promise<apartmentdocument[]> {
+  async findByPiso(
+    piso: number,
+    buildingId?: Types.ObjectId,
+  ): Promise<apartmentdocument[]> {
     const q: Record<string, unknown> = { piso };
     if (buildingId) q.buildingId = buildingId;
     return this.apartmentModel.find(q).sort({ numero: 1 }).lean();
   }
 
-  async findByIdUnico(idUnico: string, buildingId?: Types.ObjectId): Promise<apartmentdocument | null> {
+  async findByIdUnico(
+    idUnico: string,
+    buildingId?: Types.ObjectId,
+  ): Promise<apartmentdocument | null> {
     const q: Record<string, unknown> = { idUnico };
     if (buildingId) q.buildingId = buildingId;
     return this.apartmentModel.findOne(q).lean();
   }
 
   // Crear seed de apartamentos para un edificio nuevo
-  async seedForBuilding(buildingId: Types.ObjectId, totalPisos: number, apartamentosPorPiso: number): Promise<void> {
-    const docs: Array<{ buildingId: Types.ObjectId; piso: number; numero: number; idUnico: string }> = [];
+  async seedForBuilding(
+    buildingId: Types.ObjectId,
+    totalPisos: number,
+    apartamentosPorPiso: number,
+  ): Promise<void> {
+    const docs: Array<{
+      buildingId: Types.ObjectId;
+      piso: number;
+      numero: number;
+      idUnico: string;
+    }> = [];
     for (let p = 1; p <= totalPisos; p++) {
       for (let a = 1; a <= apartamentosPorPiso; a++) {
         docs.push({ buildingId, piso: p, numero: a, idUnico: `P${p}-A${a}` });
       }
     }
     // insertMany con ordered: false para ignorar duplicados si ya existe
-    await this.apartmentModel.insertMany(docs as Parameters<typeof this.apartmentModel.insertMany>[0], { ordered: false }).catch(() => {});
+    await this.apartmentModel
+      .insertMany(
+        docs as Parameters<typeof this.apartmentModel.insertMany>[0],
+        { ordered: false },
+      )
+      .catch(() => {});
   }
 }

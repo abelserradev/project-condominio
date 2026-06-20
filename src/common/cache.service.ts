@@ -1,4 +1,4 @@
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import Redis from 'ioredis';
 
 interface CacheEntry<T> {
@@ -13,9 +13,9 @@ const TTL_AVISOS_READ_MS = 365 * 24 * 60 * 60 * 1000; // 1 año para "última le
  * Caché con soporte Redis. Si REDIS_URL está definido, usa Redis; si no, fallback en memoria.
  */
 @Injectable()
-export class CacheService implements OnModuleDestroy {
+export class CacheService implements OnModuleInit, OnModuleDestroy {
   private redis: Redis | null = null;
-  private memoryCache = new Map<string, CacheEntry<unknown>>();
+  private readonly memoryCache = new Map<string, CacheEntry<unknown>>();
   private readonly defaultTtl = 5 * 60 * 1000;
 
   constructor() {
@@ -26,10 +26,18 @@ export class CacheService implements OnModuleDestroy {
         retryStrategy: (times) => Math.min(times * 100, 3000),
         lazyConnect: true,
       });
-      this.redis.connect().catch((err) => {
-        console.warn('Redis connection failed, using memory cache:', err.message);
-        this.redis = null;
-      });
+    }
+  }
+
+  async onModuleInit(): Promise<void> {
+    if (!this.redis) return;
+    try {
+      await this.redis.connect();
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.warn('Redis connection failed, using memory cache:', errMsg);
+      this.redis.disconnect();
+      this.redis = null;
     }
   }
 
@@ -67,7 +75,11 @@ export class CacheService implements OnModuleDestroy {
     if (this.redis) {
       try {
         const serialized = JSON.stringify(data);
-        await this.redis.setex(this.key(key), Math.ceil(ttl / 1000), serialized);
+        await this.redis.setex(
+          this.key(key),
+          Math.ceil(ttl / 1000),
+          serialized,
+        );
       } catch {
         // fallback silencioso
       }
@@ -95,7 +107,7 @@ export class CacheService implements OnModuleDestroy {
     if (this.redis) {
       try {
         // Convertir regex "prefix:.*" a patrón Redis "condominio:prefix:*"
-        const redisPattern = this.key(pattern.replace(/\.\*/g, '*'));
+        const redisPattern = this.key(pattern.replaceAll('.*', '*'));
         const keys = await this.redis.keys(redisPattern);
         if (keys.length > 0) {
           await this.redis.del(...keys);
@@ -106,7 +118,7 @@ export class CacheService implements OnModuleDestroy {
       return;
     }
     const regexPattern = pattern.startsWith('^') ? pattern : `^${pattern}`;
-    const regex = new RegExp(regexPattern.replace(/\.\*/g, '.*'));
+    const regex = new RegExp(regexPattern.replaceAll('.*', '.*'));
     const toDelete: string[] = [];
     for (const key of this.memoryCache.keys()) {
       if (regex.test(key)) toDelete.push(key);
@@ -129,8 +141,8 @@ export class CacheService implements OnModuleDestroy {
 
   generateKey(prefix: string, params: Record<string, unknown>): string {
     const sorted = Object.keys(params)
-      .sort()
-      .map((k) => `${k}:${params[k]}`)
+      .sort((a, b) => a.localeCompare(b))
+      .map((k) => `${k}:${String(params[k])}`)
       .join('|');
     return `${prefix}:${sorted}`;
   }
@@ -144,7 +156,7 @@ export class CacheService implements OnModuleDestroy {
     const raw = await this.get<string>(this.getAvisosReadKey(deviceId));
     if (raw == null) return null;
     const n = Number(raw);
-    return isNaN(n) ? null : n;
+    return Number.isNaN(n) ? null : n;
   }
 
   async setAvisosLastRead(deviceId: string): Promise<void> {

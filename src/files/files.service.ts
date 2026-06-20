@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
-import { Readable } from 'stream';
+import { Readable } from 'node:stream';
 import * as mongoose from 'mongoose';
 import { ImageCompressionService } from './image-compression.service';
 import { validateFileMimeType } from '../common/utils/file-validation.util';
@@ -10,15 +10,18 @@ const BUCKET_NAME = 'archivos';
 
 @Injectable()
 export class FilesService {
-  private bucket: mongoose.mongo.GridFSBucket;
+  private readonly bucket: mongoose.mongo.GridFSBucket;
 
   constructor(
-    @InjectConnection() private connection: Connection,
+    @InjectConnection() private readonly connection: Connection,
     private readonly imageCompression: ImageCompressionService,
   ) {
-    this.bucket = new mongoose.mongo.GridFSBucket(this.connection.db as mongoose.mongo.Db, {
-      bucketName: BUCKET_NAME,
-    });
+    this.bucket = new mongoose.mongo.GridFSBucket(
+      this.connection.db as mongoose.mongo.Db,
+      {
+        bucketName: BUCKET_NAME,
+      },
+    );
   }
 
   async upload(
@@ -36,12 +39,14 @@ export class FilesService {
       });
       const readable = Readable.from(processedBuffer);
       readable.pipe(stream);
-      stream.on('finish', () => resolve(stream.id as mongoose.Types.ObjectId));
+      stream.on('finish', () => resolve(stream.id));
       stream.on('error', reject);
     });
   }
 
-  async getStream(id: string): Promise<{ stream: Readable; contentType: string; filename: string }> {
+  async getStream(
+    id: string,
+  ): Promise<{ stream: Readable; contentType: string; filename: string }> {
     let objectId: mongoose.Types.ObjectId;
     try {
       objectId = new mongoose.Types.ObjectId(id);
@@ -54,7 +59,8 @@ export class FilesService {
     const file = files[0];
     const stream = this.bucket.openDownloadStream(objectId);
     const contentType =
-      (file.metadata as { mimetype?: string })?.mimetype ?? 'application/octet-stream';
+      (file.metadata as { mimetype?: string })?.mimetype ??
+      'application/octet-stream';
     return { stream, contentType, filename: file.filename ?? 'file' };
   }
 }

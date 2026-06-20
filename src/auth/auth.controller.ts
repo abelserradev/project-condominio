@@ -1,4 +1,12 @@
-import { Body, Controller, Post, Req, UnauthorizedException, UseGuards, Logger } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Post,
+  Req,
+  UnauthorizedException,
+  UseGuards,
+  Logger,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { CsrfGuard } from '../common/guards/csrf.guard';
@@ -9,7 +17,7 @@ const LOGIN_THROTTLE_LIMIT = process.env.NODE_ENV === 'production' ? 5 : 30;
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
-  constructor(private authService: AuthService) {}
+  constructor(private readonly authService: AuthService) {}
 
   @Post('login')
   @UseGuards(CsrfGuard)
@@ -34,7 +42,9 @@ export class AuthController {
       this.logger.log(`Login exitoso: ${body.usuario.trim()}`);
       return result;
     } catch (e) {
-      this.logger.warn(`Login fallido: ${body.usuario?.trim() ?? 'desconocido'}`);
+      this.logger.warn(
+        `Login fallido: ${body.usuario?.trim() ?? 'desconocido'}`,
+      );
       throw e;
     }
   }

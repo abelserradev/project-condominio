@@ -1,5 +1,4 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Types } from 'mongoose';
 import { BuildingsService } from '../buildings/buildings.service';
 import { BuildingDocument } from '../buildings/schemas/building.schema';
 import { ApartmentsService } from '../apartments/apartments.service';
@@ -41,7 +40,7 @@ export class SuperService {
     }
 
     await this.apartmentsService.seedForBuilding(
-      building._id as Types.ObjectId,
+      building._id,
       dto.totalPisos,
       dto.apartamentosPorPiso,
     );
@@ -49,11 +48,14 @@ export class SuperService {
     await this.userService.createAdminForBuilding({
       usuario: dto.adminUsuario,
       password: dto.adminPassword,
-      buildingId: building._id as Types.ObjectId,
+      buildingId: building._id,
     });
 
-    const creado = await this.buildingsService.findById(building._id.toString());
-    if (!creado) throw new NotFoundException('Edificio no encontrado tras crear');
+    const creado = await this.buildingsService.findById(
+      building._id.toString(),
+    );
+    if (!creado)
+      throw new NotFoundException('Edificio no encontrado tras crear');
     return creado;
   }
 
@@ -75,7 +77,10 @@ export class SuperService {
     return this.buildingsService.suspender(buildingId);
   }
 
-  async actualizarDatosPago(buildingId: string, datos: string): Promise<BuildingDocument> {
+  async actualizarDatosPago(
+    buildingId: string,
+    datos: string,
+  ): Promise<BuildingDocument> {
     return this.buildingsService.updateDatosContactoPago(buildingId, datos);
   }
 }

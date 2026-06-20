@@ -10,9 +10,7 @@ import { OcrModule } from '../ocr/ocr.module';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: Payment.name, schema: paymentschema },
-    ]),
+    MongooseModule.forFeature([{ name: Payment.name, schema: paymentschema }]),
     FilesModule,
     forwardRef(() => AdministracionModule),
     CommonModule,

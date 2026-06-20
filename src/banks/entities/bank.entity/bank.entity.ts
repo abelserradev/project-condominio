@@ -1,1 +1,4 @@
-export class BankEntity {}
+export class BankEntity {
+  nombre: string;
+  activo: boolean;
+}

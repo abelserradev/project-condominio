@@ -5,6 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { BuildingsService } from '../../buildings/buildings.service';
+import { RequestWithBuilding } from '../types/http-request.types';
 
 // Se aplica SOLO a rutas de admin (crear recibos, aceptar pagos, gestionar avisos).
 // Los propietarios siempre pueden leer su data aunque la suscripción esté vencida.
@@ -12,8 +13,8 @@ import { BuildingsService } from '../../buildings/buildings.service';
 export class SubscriptionGuard implements CanActivate {
   constructor(private readonly buildingsService: BuildingsService) {}
 
-  async canActivate(context: ExecutionContext): Promise<boolean> {
-    const req = context.switchToHttp().getRequest();
+  canActivate(context: ExecutionContext): boolean {
+    const req = context.switchToHttp().getRequest<RequestWithBuilding>();
     const building = req.building;
 
     if (!building) {
@@ -22,7 +23,9 @@ export class SubscriptionGuard implements CanActivate {
     }
 
     if (building.estadoSuscripcion === 'suspendido') {
-      throw new ForbiddenException('Cuenta suspendida. Contacte al administrador de la plataforma.');
+      throw new ForbiddenException(
+        'Cuenta suspendida. Contacte al administrador de la plataforma.',
+      );
     }
 
     const hoy = new Date();
@@ -35,7 +38,9 @@ export class SubscriptionGuard implements CanActivate {
       if (building.estadoSuscripcion !== 'vencido') {
         this.buildingsService.marcarVencido(building._id).catch(() => {});
       }
-      throw new ForbiddenException('Suscripción vencida. Renueva tu plan para continuar.');
+      throw new ForbiddenException(
+        'Suscripción vencida. Renueva tu plan para continuar.',
+      );
     }
 
     return true;
