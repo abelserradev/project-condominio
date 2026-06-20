@@ -23,6 +23,5 @@ export const BANCOS_VENEZUELA = [
   'Banco Activo',
   'Banco Casa Propia',
   'BANFANB',
-  'Banco Activo',
   'Banco Caroní',
 ] as const;

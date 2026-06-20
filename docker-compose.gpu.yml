@@ -1,0 +1,16 @@
+# Ollama en host (GPU AMD). Usar cuando Docker no puede pasar /dev/kfd.
+#
+# 1. Instalar Ollama nativo con ROCm: ver GPU_DRIVERS.md
+# 2. Ejecutar en host: ollama serve && ollama pull moondream:1.8b
+# 3. Levantar: docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+
+services:
+  api:
+    environment:
+      OLLAMA_URL: http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  ollama:
+    profiles:
+      - disabled

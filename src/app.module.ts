@@ -12,9 +12,14 @@ import { PaymentsModule } from './payments/payments.module';
 import { AdministracionModule } from './administracion/administracion.module';
 import { OwnersModule } from './owners/owners.module';
 import { FilesModule } from './files/files.module';
-import { tasabcvmodule } from './tasa-bcv/tasa-bcv.module';
+import { TasaBcvModule } from './tasa-bcv/tasa-bcv.module';
 import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
+import { AvisosModule } from './avisos/avisos.module';
+import { OcrModule } from './ocr/ocr.module';
+import { SuperModule } from './super/super.module';
+import { OnboardingModule } from './onboarding/onboarding.module';
+
 const mongoUri =
   process.env.MONGODB_URI ?? 'mongodb://localhost:27017/condominio';
 
@@ -41,9 +46,13 @@ const mongoUri =
     AdministracionModule,
     OwnersModule,
     FilesModule,
-    tasabcvmodule,
+    TasaBcvModule,
     UserModule,
     AuthModule,
+    AvisosModule,
+    OcrModule,
+    SuperModule,
+    OnboardingModule,
   ],
   controllers: [AppController],
   providers: [

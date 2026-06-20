@@ -14,6 +14,7 @@ lerna-debug.log*
 
 # OS
 .DS_Store
+Thumbs.db
 
 # Tests
 /coverage
@@ -27,6 +28,8 @@ lerna-debug.log*
 *.launch
 .settings/
 *.sublime-workspace
+*.swp
+*~
 
 # IDE - VSCode
 .vscode/*
@@ -35,15 +38,50 @@ lerna-debug.log*
 !.vscode/launch.json
 !.vscode/extensions.json
 
-# dotenv environment variable files
-.env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
-# .env.example debe estar en el repositorio como plantilla
+# Cursor / agentes locales
+.cursor/
 
-# temp directory
+# dotenv — NUNCA subir (JWT_SECRET, MONGODB_URI, credenciales, bootstrap tokens)
+.env
+.env.*
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+.env.staging
+.env.coolify
+
+# Certificados y claves privadas
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+id_rsa
+id_ed25519
+
+# Credenciales sueltas (GCP, AWS, Mongo dumps con datos reales)
+credentials.json
+service-account*.json
+secrets/
+.secrets/
+*.secrets.json
+
+# Backups y dumps de BD
+/dumps
+*.dump
+*.archive
+*.bson
+*.sql
+*.sql.gz
+
+# Uploads / datos locales de desarrollo
+uploads/
+/data/
 .temp
 .tmp
 
@@ -53,7 +91,10 @@ pids
 *.seed
 *.pid.lock
 
-# Diagnostic reports (https://nodejs.org/api/report.html)
+# Diagnostic reports
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
-/dumps
+# Documentación local con notas de infra (no versionar)
+GPU_DRIVERS.md
+OCR_SETUP.md
+DOCUMENTACION.md

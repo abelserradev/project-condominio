@@ -12,7 +12,8 @@ export class BanksService implements OnModuleInit {
     const count = await this.bankModel.countDocuments();
     if (count > 0) return;
     const docs = BANCOS_VENEZUELA.map((nombre) => ({ nombre, activo: true }));
-    await this.bankModel.insertMany(docs);
+    // ordered: false para que un duplicado en el array no aborte el resto del seed
+    await this.bankModel.insertMany(docs, { ordered: false }).catch(() => {});
   }
 
   async findAll(): Promise<BankDocument[]> {

@@ -2,6 +2,19 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 
+// Payload extendido para el sistema multi-tenant
+type JwtPayload = {
+  sub: string;
+  usuario?: string;
+  rol: string;
+  isSuperAdmin?: boolean;
+  buildingId?: string;
+  edificio?: string;
+  piso?: number;
+  apartamento?: number;
+  idUnico?: string;
+};
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor() {
@@ -16,10 +29,22 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: any): Promise<{ sub: string; usuario: string }> {
-    if (!payload.sub || !payload.usuario) {
+  async validate(payload: JwtPayload) {
+    if (!payload.sub) {
       throw new UnauthorizedException('Token inválido: payload incompleto');
     }
-    return { sub: payload.sub, usuario: payload.usuario };
+
+    // Propagar todos los campos del JWT al req.user para que los controladores los lean sin queries extra
+    return {
+      sub: payload.sub,
+      usuario: payload.usuario,
+      rol: payload.rol ?? 'admin',
+      isSuperAdmin: payload.isSuperAdmin ?? false,
+      buildingId: payload.buildingId,
+      edificio: payload.edificio,
+      piso: payload.piso,
+      apartamento: payload.apartamento,
+      idUnico: payload.idUnico,
+    };
   }
 }

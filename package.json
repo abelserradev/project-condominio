@@ -18,7 +18,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "reset-admin": "ts-node -r tsconfig-paths/register scripts/reset-admin-password.ts"
+    "create-superadmin": "ts-node -r tsconfig-paths/register scripts/create-superadmin.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.16",
@@ -33,9 +33,9 @@
     "class-validator": "^0.14.3",
     "cookie-parser": "^1.4.7",
     "csurf": "^1.11.0",
-    "cookie-parser": "^1.4.7",
     "dotenv": "^17.2.3",
     "helmet": "^8.1.0",
+    "ioredis": "^5.10.1",
     "mongodb": "^7.0.0",
     "mongoose": "^9.1.5",
     "multer": "^2.0.2",
@@ -44,7 +44,9 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "sharp": "^0.33.5",
-    "validator": "^13.13.0"
+    "tesseract.js": "^7.0.0",
+    "validator": "^13.13.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -76,6 +78,7 @@
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0"
   },
+  "packageManager": "pnpm@11.3.0",
   "jest": {
     "moduleFileExtensions": [
       "js",

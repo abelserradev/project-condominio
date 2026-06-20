@@ -20,6 +20,9 @@ export class Abono {
 
 @Schema({ timestamps: true, collection: 'administracion' })
 export class Recibo {
+  @Prop({ type: Types.ObjectId, ref: 'Building', index: true })
+  buildingId?: Types.ObjectId;
+
   @Prop({ required: true })
   piso: number;
 
@@ -56,6 +59,6 @@ export class Recibo {
 
 export const ReciboSchema = SchemaFactory.createForClass(Recibo);
 
-// Índices compuestos para queries comunes
-ReciboSchema.index({ piso: 1, apartamento: 1, estado: 1 });
-ReciboSchema.index({ createdAt: -1 });
+// buildingId como primer campo — garantiza aislamiento entre edificios
+ReciboSchema.index({ buildingId: 1, piso: 1, apartamento: 1, estado: 1 });
+ReciboSchema.index({ buildingId: 1, createdAt: -1 });

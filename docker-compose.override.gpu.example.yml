@@ -1,0 +1,15 @@
+# GPU AMD (ROCm). Usar solo si Docker puede acceder a /dev/kfd y /dev/dri.
+# Copiar a docker-compose.override.yml:
+#   cp docker-compose.override.gpu.example.yml docker-compose.override.yml
+#
+# Requiere: amdgpu + ROCm instalados, usuario en grupo render, reinicio.
+
+services:
+  ollama:
+    image: mnccouk/ollama-gpu-rx580:latest
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    environment:
+      HIP_PATH: /opt/rocm/lib
+      LD_LIBRARY_PATH: /opt/rocm/lib

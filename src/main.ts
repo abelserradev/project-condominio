@@ -58,46 +58,56 @@ async function bootstrap() {
     }),
   );
 
-  // CORS configurado con restricciones apropiadas
   const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
   const allowedOrigins = frontendUrl.split(',').map((url) => url.trim()).filter(Boolean);
-  
+
+  const isPrivateNetworkOrigin = (o: string) => {
+    try {
+      const u = new URL(o);
+      const host = u.hostname;
+      return (
+        host.startsWith('192.168.') ||
+        host.startsWith('10.') ||
+        host.startsWith('172.16.') ||
+        host.startsWith('172.17.') ||
+        host === 'localhost' ||
+        host === '127.0.0.1'
+      );
+    } catch {
+      return false;
+    }
+  };
+
   app.enableCors({
     origin: (origin, callback) => {
-      // En producción, rechazar requests sin origin
+      // Peticiones sin Origin: favicon, health checks, curl, acceso directo
       if (!origin) {
-        if (isDevelopment) {
-          callback(null, true);
-          return;
-        }
-        callback(new Error('Origin requerido'));
+        callback(null, true);
         return;
       }
-      
-      // Permitir origins configurados explícitamente
+
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
         return;
       }
-      
-      // En desarrollo, permitir localhost con diferentes puertos
+
       if (isDevelopment && (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:'))) {
         callback(null, true);
         return;
       }
-      
-      // En producción, rechazar cualquier otro origin
-      if (!isDevelopment) {
-        console.warn(`[CORS] Origin no permitido: ${origin}`);
-        callback(new Error('No permitido por CORS'));
+
+      if (isDevelopment && isPrivateNetworkOrigin(origin)) {
+        callback(null, true);
         return;
       }
-      
-      callback(null, true);
+
+      // No hay fallback permisivo — cualquier origen no reconocido queda bloqueado
+      // incluso en desarrollo, para evitar que NODE_ENV=development en prod abra el CORS
+      callback(new Error('No permitido por CORS'));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With', 'X-CSRF-Token'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With', 'X-CSRF-Token', 'x-building-slug'],
     exposedHeaders: ['Authorization'],
   });
 

@@ -1,23 +1,20 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, ConflictException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import * as bcrypt from 'bcrypt';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
-import { validatePasswordStrength } from '../common/utils/password.util';
 
 @Injectable()
-export class UserService implements OnModuleInit {
+export class UserService {
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
-
-  async onModuleInit(): Promise<void> {
-    // Solo ejecutar seed si la variable SEED_ADMIN está habilitada
-    if (process.env.SEED_ADMIN !== 'false') {
-      await this.seedAdmin();
-    }
-  }
 
   async findByUsuario(usuario: string): Promise<UserDocument | null> {
     return this.userModel.findOne({ usuario }).lean().exec();
+  }
+
+  async findById(id: string): Promise<UserDocument | null> {
+    if (!Types.ObjectId.isValid(id)) return null;
+    return this.userModel.findById(id).lean().exec();
   }
 
   async validatePassword(plain: string, storedHash: string): Promise<boolean> {
@@ -30,41 +27,41 @@ export class UserService implements OnModuleInit {
     return result.modifiedCount > 0;
   }
 
-  async seedAdmin(): Promise<void> {
-    try {
-      const usuario = process.env.ADMIN_USUARIO?.trim();
-      const password = process.env.ADMIN_PASSWORD;
-      if (!usuario || !password) {
-        console.warn('[UserService] seedAdmin: Variables ADMIN_USUARIO o ADMIN_PASSWORD no configuradas');
-        return;
-      }
-      if (usuario.length === 0) {
-        console.warn('[UserService] seedAdmin: ADMIN_USUARIO está vacío después de trim');
-        return;
-      }
-      const exists = await this.userModel.findOne({ usuario });
-      if (exists) {
-        console.log(`[UserService] seedAdmin: Usuario "${usuario}" ya existe, omitiendo creación`);
-        if (process.env.ADMIN_RESET_PASSWORD === 'true') {
-          console.log(`[UserService] seedAdmin: Actualizando contraseña para "${usuario}"`);
-          const actualizado = await this.updatePassword(usuario, password);
-          if (actualizado) {
-            console.log(`[UserService] seedAdmin: Contraseña actualizada para "${usuario}"`);
-          } else {
-            console.warn(`[UserService] seedAdmin: No se pudo actualizar la contraseña para "${usuario}"`);
-          }
-        }
-        return;
-      }
-      // Validar fortaleza de contraseña solo si no es un reset (para permitir migraciones)
-      if (process.env.ADMIN_RESET_PASSWORD !== 'true') {
-        validatePasswordStrength(password);
-      }
-      const passwordHash = await bcrypt.hash(password, 10);
-      const newUser = await this.userModel.create({ usuario, passwordHash, rol: 'admin' });
-      console.log(`[UserService] seedAdmin: Usuario administrador "${usuario}" creado exitosamente (ID: ${newUser._id})`);
-    } catch (error) {
-      console.error('[UserService] seedAdmin: Error al crear usuario administrador:', error);
+  async createAdminForBuilding(data: {
+    usuario: string;
+    password: string;
+    buildingId: Types.ObjectId;
+  }): Promise<UserDocument> {
+    const existente = await this.userModel.findOne({ usuario: data.usuario }).lean();
+    if (existente) {
+      throw new ConflictException(`El usuario "${data.usuario}" ya existe`);
     }
+    const passwordHash = await bcrypt.hash(data.password, 10);
+    const doc = await this.userModel.create({
+      usuario: data.usuario,
+      passwordHash,
+      rol: 'admin',
+      buildingId: data.buildingId,
+      isSuperAdmin: false,
+    });
+    return doc.toObject() as UserDocument;
+  }
+
+  async ensureSuperAdmin(usuario: string, password: string): Promise<void> {
+    const existente = await this.userModel.findOne({ usuario }).exec();
+    const passwordHash = await bcrypt.hash(password, 10);
+    if (existente) {
+      await this.userModel.updateOne(
+        { usuario },
+        { $set: { isSuperAdmin: true, passwordHash, buildingId: null } },
+      );
+      return;
+    }
+    await this.userModel.create({
+      usuario,
+      passwordHash,
+      rol: 'admin',
+      isSuperAdmin: true,
+    });
   }
 }

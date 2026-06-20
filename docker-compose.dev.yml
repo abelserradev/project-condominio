@@ -1,0 +1,21 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: condominio-mongodb-dev
+    restart: unless-stopped
+    ports:
+      - "27017:27017"    # Puerto estándar en local, sin auth para desarrollo más simple
+    environment:
+      MONGO_INITDB_DATABASE: condominio
+    volumes:
+      - mongodb_dev_data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    container_name: condominio-redis-dev
+    restart: unless-stopped
+    ports:
+      - "6380:6379"    # 6379 ocupado por otro Redis del sistema
+
+volumes:
+  mongodb_dev_data:

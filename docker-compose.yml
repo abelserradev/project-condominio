@@ -12,10 +12,21 @@ services:
     environment:
       NODE_ENV: development
       PORT: 3001
-      MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/condominio}
-      FRONTEND_URL: http://localhost:3000
+      MONGODB_URI: ${MONGODB_URI}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      OLLAMA_URL: http://ollama:11434
     depends_on:
       - mongodb
+      - redis
+    networks:
+      - condominio_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: condominio-redis
+    restart: unless-stopped
+    # Puerto no expuesto al host; la API accede vía red interna de Docker
     networks:
       - condominio_network
 
@@ -24,11 +35,24 @@ services:
     container_name: condominio-mongodb
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      - "27018:27017"
     environment:
       MONGO_INITDB_DATABASE: condominio
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
     volumes:
       - mongodb_data:/data/db
+    networks:
+      - condominio_network
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: condominio-ollama
+    restart: unless-stopped
+    ports:
+      - "11435:11434"
+    volumes:
+      - ollama_data:/root/.ollama
     networks:
       - condominio_network
 
@@ -38,3 +62,4 @@ networks:
 
 volumes:
   mongodb_data:
+  ollama_data:

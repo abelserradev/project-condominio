@@ -5,6 +5,8 @@ import { Payment, paymentdocument } from './schemas/payment.schema';
 import { FilesService } from '../files/files.service';
 import { AdministracionService } from '../administracion/administracion.service';
 import { CacheService } from '../common/cache.service';
+import { OcrService } from '../ocr/ocr.service';
+import * as crypto from 'crypto';
 
 // Parsear fecha a mediodía UTC para evitar problemas de zona horaria
 function parsearFechaPago(fechaString: string): Date {
@@ -23,6 +25,7 @@ function parsearFechaPago(fechaString: string): Date {
 }
 
 export type CreatePaymentInput = {
+  buildingId?: Types.ObjectId;
   piso: number;
   apartamento: number;
   meses: number[];
@@ -46,6 +49,7 @@ export class PaymentsService {
     @Inject(forwardRef(() => AdministracionService))
     private readonly administracionService: AdministracionService,
     @Inject(CacheService) private readonly cacheService: CacheService,
+    private readonly ocrService: OcrService,
   ) {}
 
   async create(input: CreatePaymentInput): Promise<paymentdocument> {
@@ -58,6 +62,7 @@ export class PaymentsService {
     const recibosIdsObjectIds = input.recibosIds?.map((id) => new Types.ObjectId(id));
     
     const doc = await this.paymentModel.create({
+      buildingId: input.buildingId,
       piso: input.piso,
       apartamento: input.apartamento,
       idUnico,
@@ -72,22 +77,44 @@ export class PaymentsService {
       estado: 'pendiente',
       recibosPagados: recibosIdsObjectIds || [],
     });
+
+    // --- Inicia Lógica de Aprendizaje OCR ---
+    try {
+      const fileHash = crypto.createHash('sha256').update(input.comprobanteBuffer).digest('hex');
+      const prediccionOcr = await this.cacheService.get<any>(`ocr_pred:${fileHash}`);
+      if (prediccionOcr) {
+        await this.ocrService.registrarOcrLog(fileId.toString(), prediccionOcr, {
+          banco: input.banco,
+          montoBs: input.montoBs,
+          fechaPago: input.fechaPago,
+          numeroComprobante: input.numeroComprobante,
+        });
+        await this.cacheService.delete(`ocr_pred:${fileHash}`); // Limpiar ya fue consumido
+      }
+    } catch (err) {
+      console.warn('Error enlazando OCR log:', err);
+    }
+    // --- Fin Lógica de Aprendizaje OCR ---
+
     const result = doc.toObject() as paymentdocument;
-    this.cacheService.deletePattern(`payments:.*`);
+    await this.cacheService.deletePattern(`payments:.*`);
     return result;
   }
 
+
   async findAll(filters: {
+    buildingId?: Types.ObjectId;
     piso?: number;
     apartamento?: number;
     estado?: string;
   }): Promise<paymentdocument[]> {
     const cacheKey = this.cacheService.generateKey('payments', filters);
-    const cached = this.cacheService.get<paymentdocument[]>(cacheKey);
+    const cached = await this.cacheService.get<paymentdocument[]>(cacheKey);
     if (cached) {
       return cached;
     }
-    const q: Record<string, number | string> = {};
+    const q: Record<string, unknown> = {};
+    if (filters.buildingId) q.buildingId = filters.buildingId;
     if (filters.piso != null) q.piso = filters.piso;
     if (filters.apartamento != null) q.apartamento = filters.apartamento;
     if (filters.estado != null) q.estado = filters.estado;
@@ -97,19 +124,26 @@ export class PaymentsService {
       .lean()
       .exec();
     const result = list as paymentdocument[];
-    this.cacheService.set(cacheKey, result, 3 * 60 * 1000);
+    await this.cacheService.set(cacheKey, result, 3 * 60 * 1000);
     return result;
   }
 
-  async findById(id: string): Promise<paymentdocument | null> {
-    const doc = await this.paymentModel.findById(id).lean().exec();
+  async findById(id: string, buildingId?: Types.ObjectId): Promise<paymentdocument | null> {
+    if (!Types.ObjectId.isValid(id)) return null;
+    const q: Record<string, unknown> = { _id: id };
+    if (buildingId) q.buildingId = buildingId;
+    const doc = await this.paymentModel.findOne(q).lean().exec();
     if (!doc) return null;
     return doc as paymentdocument;
   }
 
-  async updateEstado(id: string, estado: 'aceptado' | 'rechazado'): Promise<paymentdocument> {
-    const doc = await this.paymentModel.findByIdAndUpdate(
-      id,
+  async updateEstado(
+    id: string,
+    estado: 'aceptado' | 'rechazado',
+    buildingId: Types.ObjectId,
+  ): Promise<paymentdocument> {
+    const doc = await this.paymentModel.findOneAndUpdate(
+      { _id: id, buildingId },
       { estado },
       { new: true },
     ).lean().exec();
@@ -123,34 +157,19 @@ export class PaymentsService {
         ? pagoDoc.fechaPago 
         : new Date(pagoDoc.fechaPago);
       
-      // Si el pago tiene recibosIds guardados (de cuando se creó), usarlos
-      // Si no, usar la lógica por meses
-      let ids: string[] = [];
-      if (pagoDoc.recibosPagados && pagoDoc.recibosPagados.length > 0) {
-        // Los recibos ya están asociados, aplicar el pago a esos recibos específicos
-        const recibosIds = pagoDoc.recibosPagados.map((id) => id.toString());
-        const { count, ids: idsActualizados } = await this.administracionService.updateManyByIds(
-          recibosIds,
-          pagoDoc.montoUsd,
-          paymentId,
-          fechaPago,
-          pagoDoc.numeroComprobante,
-        );
-        ids = idsActualizados;
-      } else {
-        // Lógica original por meses
-        const mesesPago = pagoDoc.meses || [];
-        const { count, ids: idsPorMeses, abonosRegistrados } = await this.administracionService.updateManyByMeses(
-          pagoDoc.piso,
-          pagoDoc.apartamento,
-          mesesPago,
-          pagoDoc.montoUsd,
-          paymentId,
-          fechaPago,
-          pagoDoc.numeroComprobante,
-        );
-        ids = idsPorMeses;
-      }
+      const { ids } = await this.administracionService.applyPagoAceptado({
+        buildingId: pagoDoc.buildingId,
+        piso: pagoDoc.piso,
+        apartamento: pagoDoc.apartamento,
+        recibosIds: pagoDoc.recibosPagados?.length
+          ? pagoDoc.recibosPagados.map((id) => id.toString())
+          : undefined,
+        meses: !pagoDoc.recibosPagados?.length ? (pagoDoc.meses || []) : undefined,
+        montoPago: pagoDoc.montoUsd,
+        paymentId,
+        fechaPago,
+        numeroComprobante: pagoDoc.numeroComprobante,
+      });
       
       if (ids.length > 0) {
         const recibosIds = ids.map((id) => new Types.ObjectId(id));
@@ -161,9 +180,9 @@ export class PaymentsService {
         ).exec();
       }
     }
-    this.cacheService.deletePattern(`payments:.*`);
-    this.cacheService.deletePattern(`recibos:.*`);
-    this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
+    await this.cacheService.deletePattern(`payments:.*`);
+    await this.cacheService.deletePattern(`recibos:.*`);
+    await this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
     return pagoDoc;
   }
 }

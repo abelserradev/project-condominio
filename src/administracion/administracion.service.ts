@@ -4,8 +4,10 @@ import { Model, Types } from 'mongoose';
 import { Recibo, ReciboDocument, Abono } from './schemas/recibo.schema';
 import { FilesService } from '../files/files.service';
 import { CacheService } from '../common/cache.service';
+import { AbonoApartamentoService } from './abono-apartamento.service';
 
 export type CreateReciboInput = {
+  buildingId?: Types.ObjectId;
   piso: number;
   apartamento: number;
   meses: number[];
@@ -43,6 +45,7 @@ export class AdministracionService {
     @InjectModel(Recibo.name) private reciboModel: Model<ReciboDocument>,
     private readonly filesService: FilesService,
     @Inject(CacheService) private readonly cacheService: CacheService,
+    private readonly abonoApartamentoService: AbonoApartamentoService,
   ) {}
 
   async create(input: CreateReciboInput): Promise<ReciboDocument> {
@@ -52,6 +55,7 @@ export class AdministracionService {
       mimetype: input.facturaMimetype,
     });
     const doc = await this.reciboModel.create({
+      buildingId: input.buildingId,
       piso: input.piso,
       apartamento: input.apartamento,
       idUnico,
@@ -65,22 +69,24 @@ export class AdministracionService {
       abonos: [],
     });
     const result = doc.toObject() as ReciboDocument;
-    this.cacheService.deletePattern(`recibos:.*`);
-    this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
+    await this.cacheService.deletePattern(`recibos:.*`);
+    await this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
     return result;
   }
 
   async findAll(filters: {
+    buildingId?: Types.ObjectId;
     piso?: number;
     apartamento?: number;
     estado?: string;
   }): Promise<ReciboDocument[]> {
     const cacheKey = this.cacheService.generateKey('recibos', filters);
-    const cached = this.cacheService.get<ReciboDocument[]>(cacheKey);
+    const cached = await this.cacheService.get<ReciboDocument[]>(cacheKey);
     if (cached) {
       return cached;
     }
-    const q: Record<string, number | string> = {};
+    const q: Record<string, unknown> = {};
+    if (filters.buildingId) q.buildingId = filters.buildingId;
     if (filters.piso != null) q.piso = filters.piso;
     if (filters.apartamento != null) q.apartamento = filters.apartamento;
     if (filters.estado != null) q.estado = filters.estado;
@@ -90,20 +96,22 @@ export class AdministracionService {
       .lean()
       .exec();
     const result = list as ReciboDocument[];
-    this.cacheService.set(cacheKey, result, 3 * 60 * 1000);
+    await this.cacheService.set(cacheKey, result, 3 * 60 * 1000);
     return result;
   }
 
   async findPendientesConSaldo(filters: {
+    buildingId?: Types.ObjectId;
     piso?: number;
     apartamento?: number;
   }): Promise<ReciboDocument[]> {
     const cacheKey = this.cacheService.generateKey('recibos_pendientes_saldo', filters);
-    const cached = this.cacheService.get<ReciboDocument[]>(cacheKey);
+    const cached = await this.cacheService.get<ReciboDocument[]>(cacheKey);
     if (cached) {
       return cached;
     }
-    const q: Record<string, number> = {};
+    const q: Record<string, unknown> = {};
+    if (filters.buildingId) q.buildingId = filters.buildingId;
     if (filters.piso != null) q.piso = filters.piso;
     if (filters.apartamento != null) q.apartamento = filters.apartamento;
     const list = await this.reciboModel
@@ -115,14 +123,103 @@ export class AdministracionService {
       const montoPagado = recibo.montoPagado || 0;
       return montoPagado < recibo.montoUsd;
     }) as ReciboDocument[];
-    this.cacheService.set(cacheKey, result, 3 * 60 * 1000);
+    await this.cacheService.set(cacheKey, result, 3 * 60 * 1000);
     return result;
   }
 
-  async findById(id: string): Promise<ReciboDocument | null> {
-    const doc = await this.reciboModel.findById(id).lean().exec();
+  async findById(id: string, buildingId?: Types.ObjectId): Promise<ReciboDocument | null> {
+    if (!Types.ObjectId.isValid(id)) return null;
+    const q: Record<string, unknown> = { _id: id };
+    if (buildingId) q.buildingId = buildingId;
+    const doc = await this.reciboModel.findOne(q).lean().exec();
     if (!doc) return null;
     return doc as ReciboDocument;
+  }
+
+  /**
+   * Aplica pago aceptado con soporte de abono: exceso va a abono; si hay abono, se usa para cubrir deuda.
+   * buildingId se pasa desde el pago aceptado para garantizar aislamiento entre edificios.
+   */
+  async applyPagoAceptado(params: {
+    buildingId?: Types.ObjectId;
+    piso: number;
+    apartamento: number;
+    recibosIds?: string[];
+    meses?: number[];
+    montoPago: number;
+    paymentId: string;
+    fechaPago: Date;
+    numeroComprobante?: string;
+  }): Promise<{ count: number; ids: string[] }> {
+    let recibosPendientes: ReciboDocument[];
+    if (params.recibosIds && params.recibosIds.length > 0) {
+      const objectIds = params.recibosIds.map((id) => new Types.ObjectId(id));
+      // Incluir buildingId en el query para evitar que se modifiquen recibos de otro edificio
+      const q: Record<string, unknown> = { _id: { $in: objectIds } };
+      if (params.buildingId) q.buildingId = params.buildingId;
+      const list = await this.reciboModel.find(q).lean().exec();
+      recibosPendientes = list.filter((r) => {
+        const montoPagado = r.montoPagado || 0;
+        return montoPagado < r.montoUsd;
+      }) as ReciboDocument[];
+    } else if (params.meses && params.meses.length > 0) {
+      const q: Record<string, unknown> = {
+        piso: params.piso,
+        apartamento: params.apartamento,
+        meses: { $in: params.meses },
+      };
+      if (params.buildingId) q.buildingId = params.buildingId;
+      const list = await this.reciboModel.find(q).lean().exec();
+      recibosPendientes = list.filter((r) => {
+        const montoPagado = r.montoPagado || 0;
+        return montoPagado < r.montoUsd;
+      }) as ReciboDocument[];
+    } else {
+      return { count: 0, ids: [] };
+    }
+    if (recibosPendientes.length === 0) return { count: 0, ids: [] };
+
+    const totalDebt = recibosPendientes.reduce((sum, r) => {
+      const montoPagado = r.montoPagado || 0;
+      return sum + (r.montoUsd - montoPagado);
+    }, 0);
+    const abono = await this.abonoApartamentoService.getMonto(params.piso, params.apartamento, params.buildingId);
+    const amountFromPayment = Math.min(params.montoPago, totalDebt);
+    const excess = Math.max(0, params.montoPago - totalDebt);
+    const amountFromAbono = Math.min(abono, totalDebt - amountFromPayment);
+    const totalToApply = amountFromPayment + amountFromAbono;
+
+    if (excess > 0) {
+      await this.abonoApartamentoService.agregar(params.piso, params.apartamento, excess, params.buildingId);
+    }
+    if (amountFromAbono > 0) {
+      await this.abonoApartamentoService.consumir(params.piso, params.apartamento, amountFromAbono, params.buildingId);
+    }
+
+    let result: { count: number; ids: string[] };
+    if (params.recibosIds && params.recibosIds.length > 0) {
+      result = await this.updateManyByIds(
+        params.recibosIds,
+        totalToApply,
+        params.paymentId,
+        params.fechaPago,
+        params.numeroComprobante,
+        params.buildingId,
+      );
+    } else {
+      const { count, ids } = await this.updateManyByMeses(
+        params.piso,
+        params.apartamento,
+        params.meses!,
+        totalToApply,
+        params.paymentId,
+        params.fechaPago,
+        params.numeroComprobante,
+        params.buildingId,
+      );
+      result = { count, ids };
+    }
+    return result;
   }
 
   async updateEstado(id: string, estado: 'pagado'): Promise<ReciboDocument> {
@@ -135,8 +232,8 @@ export class AdministracionService {
       throw new NotFoundException('Recibo no encontrado');
     }
     const result = doc as ReciboDocument;
-    this.cacheService.deletePattern(`recibos:.*`);
-    this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
+    await this.cacheService.deletePattern(`recibos:.*`);
+    await this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
     return result;
   }
 
@@ -183,8 +280,8 @@ export class AdministracionService {
       throw new NotFoundException('Recibo no encontrado');
     }
     const result = doc as ReciboDocument;
-    this.cacheService.deletePattern(`recibos:.*`);
-    this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
+    await this.cacheService.deletePattern(`recibos:.*`);
+    await this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
     return result;
   }
 
@@ -262,14 +359,13 @@ export class AdministracionService {
     paymentId: string,
     fechaPago: Date,
     numeroComprobante?: string,
+    buildingId?: Types.ObjectId,
   ): Promise<{ count: number; ids: string[]; abonosRegistrados: number }> {
     // 1 query: O(n) - obtener todos los recibos de una vez
+    const q: Record<string, unknown> = { piso, apartamento, meses: { $in: meses } };
+    if (buildingId) q.buildingId = buildingId;
     const recibos = await this.reciboModel
-      .find({
-        piso,
-        apartamento,
-        meses: { $in: meses },
-      })
+      .find(q)
       .lean()
       .exec();
     if (recibos.length === 0) {
@@ -296,8 +392,8 @@ export class AdministracionService {
     }
     // Contar recibos completos desde el Set: O(1)
     const count = recibosCompletos.size;
-    this.cacheService.deletePattern(`recibos:.*`);
-    this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
+    await this.cacheService.deletePattern(`recibos:.*`);
+    await this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
     return { count, ids, abonosRegistrados };
   }
 
@@ -308,16 +404,17 @@ export class AdministracionService {
     paymentId: string,
     fechaPago: Date,
     numeroComprobante?: string,
+    buildingId?: Types.ObjectId,
   ): Promise<{ count: number; ids: string[] }> {
     if (recibosIds.length === 0) {
       return { count: 0, ids: [] };
     }
     const objectIds = recibosIds.map((id) => new Types.ObjectId(id));
-    // 1 query: O(n) - obtener todos los recibos de una vez
+    // Incluir buildingId para prevenir modificación cruzada entre tenants
+    const q: Record<string, unknown> = { _id: { $in: objectIds } };
+    if (buildingId) q.buildingId = buildingId;
     const recibos = await this.reciboModel
-      .find({
-        _id: { $in: objectIds },
-      })
+      .find(q)
       .lean()
       .exec();
     if (recibos.length === 0) {
@@ -343,8 +440,8 @@ export class AdministracionService {
       await this.reciboModel.bulkWrite(bulkOps);
     }
     const count = recibosCompletos.size;
-    this.cacheService.deletePattern(`recibos:.*`);
-    this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
+    await this.cacheService.deletePattern(`recibos:.*`);
+    await this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
     return { count, ids };
   }
 }

@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
-import { tasabcvcontroller } from './tasa-bcv.controller';
-import { tasabcvservice } from './tasa-bcv.services';
+import { CommonModule } from '../common/common.module';
+import { TasaBcvController } from './tasa-bcv.controller';
+import { TasaBcvService } from './tasa-bcv.services';
 
 @Module({
-  controllers: [tasabcvcontroller],
-  providers: [tasabcvservice],
+  imports: [CommonModule],
+  controllers: [TasaBcvController],
+  providers: [TasaBcvService],
 })
-export class tasabcvmodule {}
+export class TasaBcvModule {}
