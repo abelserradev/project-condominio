@@ -65,6 +65,28 @@ async function bootstrap() {
       .filter(Boolean),
   );
 
+  if (!isDevelopment) {
+    const primerOrigen = allowedOrigins.values().next().value;
+    if (primerOrigen) {
+      try {
+        const host = new URL(primerOrigen).hostname;
+        if (!host.includes('.') || /^[0-9a-f]{8,}$/i.test(host)) {
+          console.warn(
+            `[App] FRONTEND_URL="${primerOrigen}" parece URL interna de Docker. ` +
+              'En Coolify usa https://buildforge.work y PLATFORM_ROOT_DOMAIN=buildforge.work',
+          );
+        }
+      } catch {
+        // ignorar URL mal formada
+      }
+    }
+    if (!process.env.PLATFORM_ROOT_DOMAIN?.trim()) {
+      console.warn(
+        '[App] PLATFORM_ROOT_DOMAIN no definido — los portales de edificios pueden generar URLs incorrectas',
+      );
+    }
+  }
+
   const isPrivateNetworkOrigin = (o: string) => {
     try {
       const u = new URL(o);
