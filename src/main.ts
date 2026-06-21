@@ -82,6 +82,21 @@ async function bootstrap() {
     }
   };
 
+  /** Permite subdominios tenant (ej. torre-norte.buildforge.work) si el origen raíz está en FRONTEND_URL */
+  const esSubdominioPermitido = (origin: string): boolean => {
+    try {
+      const originHost = new URL(origin).hostname;
+      for (const allowed of allowedOrigins) {
+        const baseHost = new URL(allowed).hostname;
+        if (originHost === baseHost) return true;
+        if (originHost.endsWith(`.${baseHost}`)) return true;
+      }
+    } catch {
+      return false;
+    }
+    return false;
+  };
+
   const validarOrigenCors = (
     origin: string | undefined,
     callback: (err: Error | null, allow?: boolean) => void,
@@ -93,6 +108,11 @@ async function bootstrap() {
     }
 
     if (allowedOrigins.has(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    if (esSubdominioPermitido(origin)) {
       callback(null, true);
       return;
     }
