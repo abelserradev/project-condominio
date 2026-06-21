@@ -61,6 +61,25 @@ services:
               count: all
               capabilities: [gpu]
 
+  # Opcional: despliega frontend en el mismo stack para que api:3001 resuelva sin config extra
+  frontend:
+    build:
+      context: ../../frontend/condominio
+      dockerfile: Dockerfile
+    container_name: condominio-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      API_PROXY_TARGET: http://api:3001
+      NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: ${PLATFORM_ROOT_DOMAIN:-buildforge.work}
+    depends_on:
+      - api
+    networks:
+      - condominio_network
+
 networks:
   condominio_network:
     driver: bridge
