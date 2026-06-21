@@ -13,6 +13,7 @@ services:
       MONGODB_URI: ${MONGODB_URI}
       REDIS_URL: redis://redis:6379
       FRONTEND_URL: ${FRONTEND_URL}
+      PLATFORM_ROOT_DOMAIN: ${PLATFORM_ROOT_DOMAIN}
       JWT_SECRET: ${JWT_SECRET}
       OLLAMA_URL: http://ollama:11434
     depends_on:
