@@ -66,7 +66,7 @@ async function bootstrap() {
   );
 
   if (!isDevelopment) {
-    const primerOrigen = allowedOrigins.values().next().value;
+    const primerOrigen = Array.from(allowedOrigins)[0];
     if (primerOrigen) {
       try {
         const host = new URL(primerOrigen).hostname;
