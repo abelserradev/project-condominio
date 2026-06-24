@@ -28,13 +28,23 @@ export class Aviso {
   @Prop({ required: true, trim: true })
   mensaje: string;
 
-  @Prop({ required: true, enum: Aviso_tipos })
+  @Prop({ type: String, required: true, enum: Aviso_tipos })
   tipo: Aviso_tipo;
 
-  @Prop({ required: true, enum: Aviso_prioridades, default: 'media' })
+  @Prop({
+    type: String,
+    required: true,
+    enum: Aviso_prioridades,
+    default: 'media',
+  })
   prioridad: Aviso_prioridad;
 
-  @Prop({ required: true, enum: Aviso_estados, default: 'borrador' })
+  @Prop({
+    type: String,
+    required: true,
+    enum: Aviso_estados,
+    default: 'borrador',
+  })
   estado: Aviso_estado;
 }
 
