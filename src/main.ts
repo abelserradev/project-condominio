@@ -169,6 +169,7 @@ async function bootstrap() {
       'X-Requested-With',
       'X-CSRF-Token',
       'x-building-slug',
+      'x-platform-mode',
     ],
     exposedHeaders: ['Authorization'],
   });

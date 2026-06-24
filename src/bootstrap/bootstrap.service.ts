@@ -36,8 +36,9 @@ export class BootstrapService implements OnModuleInit {
     // sobrescribir credenciales en cada redeploy accidental
     const yaExiste = await this.userService.existeSuperAdmin();
     if (yaExiste) {
+      const actual = await this.userService.findPrimerSuperAdmin();
       this.logger.log(
-        'SuperAdmin ya existe en BD — bootstrap omitido. Puedes quitar SUPERADMIN_AUTO_BOOTSTRAP de Coolify.',
+        `SuperAdmin ya existe en BD (usuario: "${actual?.usuario ?? 'desconocido'}") — bootstrap omitido. Puedes quitar SUPERADMIN_AUTO_BOOTSTRAP de Coolify.`,
       );
       return;
     }
