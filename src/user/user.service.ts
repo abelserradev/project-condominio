@@ -10,6 +10,12 @@ export class UserService {
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
   ) {}
 
+  /** Usuarios legacy pueden tener mayúsculas distintas a la búsqueda normalizada. */
+  private regexUsuarioExacto(usuario: string): RegExp {
+    const esc = usuario.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`^${esc}$`, 'i');
+  }
+
   async findByUsuario(usuario: string): Promise<UserDocument | null> {
     return this.userModel.findOne({ usuario }).lean().exec();
   }
@@ -30,9 +36,11 @@ export class UserService {
   }
 
   async findSuperAdminByUsuario(usuario: string): Promise<UserDocument | null> {
+    const input = usuario.trim();
+    if (!input) return null;
     return this.userModel
       .findOne({
-        usuario: usuario.trim().toLowerCase(),
+        usuario: this.regexUsuarioExacto(input),
         isSuperAdmin: true,
       })
       .lean()
@@ -110,17 +118,26 @@ export class UserService {
   }
 
   async ensureSuperAdmin(usuario: string, password: string): Promise<void> {
-    const existente = await this.userModel.findOne({ usuario }).exec();
+    const usuarioTrim = usuario.trim();
+    const existente = await this.userModel
+      .findOne({ usuario: this.regexUsuarioExacto(usuarioTrim) })
+      .exec();
     const passwordHash = await bcrypt.hash(password, 10);
     if (existente) {
       await this.userModel.updateOne(
-        { usuario },
-        { $set: { isSuperAdmin: true, passwordHash, buildingId: null } },
+        { _id: existente._id },
+        {
+          $set: {
+            isSuperAdmin: true,
+            passwordHash,
+            buildingId: null,
+          },
+        },
       );
       return;
     }
     await this.userModel.create({
-      usuario,
+      usuario: usuarioTrim,
       passwordHash,
       rol: 'admin',
       isSuperAdmin: true,
@@ -133,5 +150,9 @@ export class UserService {
       .lean()
       .exec();
     return doc !== null;
+  }
+
+  async findPrimerSuperAdmin(): Promise<UserDocument | null> {
+    return this.userModel.findOne({ isSuperAdmin: true }).lean().exec();
   }
 }

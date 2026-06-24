@@ -30,8 +30,19 @@ export class AuthController {
       throw new UnauthorizedException('Usuario y contraseña requeridos');
     }
 
-    // El slug llega del header x-building-slug (inyectado por el middleware del frontend)
-    const buildingSlug: string | undefined = req.headers['x-building-slug'];
+    // Login plataforma: sin contexto de edificio aunque llegue x-building-slug por error
+    const platformHeader = req.headers['x-platform-mode'];
+    const esLoginPlataforma =
+      platformHeader === 'true' || platformHeader === '1';
+
+    let buildingSlug: string | undefined;
+    if (esLoginPlataforma) {
+      buildingSlug = undefined;
+    } else {
+      const slugRaw = req.headers['x-building-slug'];
+      buildingSlug =
+        typeof slugRaw === 'string' ? slugRaw.trim() || undefined : undefined;
+    }
 
     try {
       const result = await this.authService.login(
