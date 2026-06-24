@@ -28,17 +28,17 @@ export class OnboardingService {
     );
 
     await this.userService.createAdminForBuilding({
-      usuario: dto.adminUsuario,
+      email: dto.adminEmail,
       password: dto.adminPassword,
       buildingId: building._id,
     });
 
-    const response = this.buildingsService.buildRegisterResponse(building);
-    this.buildingsService.logWelcomeEmail(
-      building.slug,
-      dto.adminUsuario,
-      response.portalUrl,
+    const adminEmail = dto.adminEmail.trim().toLowerCase();
+    const response = this.buildingsService.buildRegisterResponse(
+      building,
+      adminEmail,
     );
+    await this.buildingsService.sendWelcomeEmail(adminEmail, building);
 
     return response;
   }

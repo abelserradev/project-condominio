@@ -16,6 +16,8 @@ services:
       PLATFORM_ROOT_DOMAIN: ${PLATFORM_ROOT_DOMAIN}
       JWT_SECRET: ${JWT_SECRET}
       OLLAMA_URL: http://ollama:11434
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      MAIL_FROM: ${MAIL_FROM}
     depends_on:
       - mongodb
       - redis

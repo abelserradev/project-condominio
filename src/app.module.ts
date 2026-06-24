@@ -20,6 +20,7 @@ import { OcrModule } from './ocr/ocr.module';
 import { SuperModule } from './super/super.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { BootstrapModule } from './bootstrap/bootstrap.module';
+import { ReglamentosModule } from './reglamentos/reglamentos.module';
 
 const mongoUri =
   process.env.MONGODB_URI ?? 'mongodb://localhost:27017/condominio';
@@ -55,6 +56,7 @@ const mongoUri =
     SuperModule,
     OnboardingModule,
     BootstrapModule,
+    ReglamentosModule,
   ],
   controllers: [AppController],
   providers: [

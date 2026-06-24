@@ -1,4 +1,5 @@
 import {
+  IsEmail,
   IsInt,
   IsOptional,
   IsString,
@@ -35,9 +36,8 @@ export class RegisterBuildingDto {
   @Max(20)
   apartamentosPorPiso: number;
 
-  @IsString()
-  @MinLength(3)
-  adminUsuario: string;
+  @IsEmail()
+  adminEmail: string;
 
   @IsString()
   @MinLength(6)

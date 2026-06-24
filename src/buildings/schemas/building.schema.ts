@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import { HydratedDocument, Types } from 'mongoose';
 
 export type BuildingDocument = HydratedDocument<Building>;
 
@@ -59,6 +59,15 @@ export class Building {
     default: [],
   })
   historialRenovaciones: RenovacionEntry[];
+
+  @Prop({ type: Types.ObjectId })
+  reglamentoFileId?: Types.ObjectId;
+
+  @Prop()
+  reglamentoNombre?: string;
+
+  @Prop({ type: Date })
+  reglamentoActualizadoEn?: Date;
 }
 
 export const BuildingSchema = SchemaFactory.createForClass(Building);

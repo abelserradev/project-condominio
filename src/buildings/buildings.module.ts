@@ -5,6 +5,7 @@ import { BuildingsService } from './buildings.service';
 import { Building, BuildingSchema } from './schemas/building.schema';
 import { AuthModule } from '../auth/auth.module';
 import { BuildingContextGuard } from '../common/guards/building-context.guard';
+import { CommonModule } from '../common/common.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { BuildingContextGuard } from '../common/guards/building-context.guard';
       { name: Building.name, schema: BuildingSchema },
     ]),
     forwardRef(() => AuthModule),
+    CommonModule,
   ],
   controllers: [BuildingsController],
   providers: [BuildingsService, BuildingContextGuard],
