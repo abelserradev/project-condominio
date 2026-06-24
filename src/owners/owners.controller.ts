@@ -78,7 +78,7 @@ export class OwnersController {
   }
 
   @Patch('me/password')
-  @UseGuards(JwtAuthGuard, BuildingContextGuard)
+  @UseGuards(JwtAuthGuard, BuildingContextGuard, SubscriptionGuard)
   async changeMyPassword(
     @Req() req: AuthBuildingRequest,
     @Body() dto: ChangePasswordDto,

@@ -8,6 +8,11 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 
+/** Rutas típicas de bots que escanean WordPress/PHP — no son tráfico real de la app */
+const RUTA_PROBABLE_BOT =
+  /(?:^|\/)(?:wp-|cgi-bin|\.env|phpmyadmin|vendor\/phpunit)/i;
+const ARCHIVO_PHP_PROBABLE_BOT = /\.ph(p[0-9]?|tml|ar)?(?:\?|$)/i;
+
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
@@ -103,6 +108,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
         logLine,
         exception instanceof Error ? exception.stack : String(exception),
       );
+      return;
+    }
+
+    // Escaneos automáticos (wp-admin, .php, etc.) no merecen warn en producción
+    if (
+      status === 404 &&
+      (RUTA_PROBABLE_BOT.test(request.url) ||
+        ARCHIVO_PHP_PROBABLE_BOT.test(request.url))
+    ) {
+      this.logger.debug(logLine);
       return;
     }
 

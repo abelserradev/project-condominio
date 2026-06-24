@@ -44,7 +44,7 @@ export class AdministracionController {
   ) {}
 
   @Get('public/abono')
-  @UseGuards(BuildingContextGuard)
+  @UseGuards(BuildingContextGuard, SubscriptionGuard)
   async getAbonoPublico(
     @Req() req: RequestWithBuilding,
     @Query('piso') piso: string,
@@ -68,7 +68,7 @@ export class AdministracionController {
   }
 
   @Get('public/pendientes')
-  @UseGuards(BuildingContextGuard)
+  @UseGuards(BuildingContextGuard, SubscriptionGuard)
   async findPendientesPublicos(
     @Req() req: RequestWithBuilding,
     @Query('piso') piso: string,
@@ -168,7 +168,7 @@ export class AdministracionController {
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard, BuildingContextGuard)
+  @UseGuards(JwtAuthGuard, BuildingContextGuard, SubscriptionGuard)
   async findAll(
     @Req() req: RequestWithBuilding,
     @Query('piso') piso: string,
@@ -195,7 +195,7 @@ export class AdministracionController {
   }
 
   @Get(':id')
-  @UseGuards(JwtAuthGuard, BuildingContextGuard)
+  @UseGuards(JwtAuthGuard, BuildingContextGuard, SubscriptionGuard)
   async findOne(@Param('id') id: string, @Req() req: RequestWithBuilding) {
     if (!id || id.trim() === '') {
       throw new BadRequestException('ID requerido');

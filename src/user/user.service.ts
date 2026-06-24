@@ -14,6 +14,31 @@ export class UserService {
     return this.userModel.findOne({ usuario }).lean().exec();
   }
 
+  async findAdminByUsuarioAndBuilding(
+    usuario: string,
+    buildingId: Types.ObjectId,
+  ): Promise<UserDocument | null> {
+    return this.userModel
+      .findOne({
+        usuario: usuario.trim().toLowerCase(),
+        buildingId,
+        isSuperAdmin: false,
+        rol: 'admin',
+      })
+      .lean()
+      .exec();
+  }
+
+  async findSuperAdminByUsuario(usuario: string): Promise<UserDocument | null> {
+    return this.userModel
+      .findOne({
+        usuario: usuario.trim().toLowerCase(),
+        isSuperAdmin: true,
+      })
+      .lean()
+      .exec();
+  }
+
   async findById(id: string): Promise<UserDocument | null> {
     if (!Types.ObjectId.isValid(id)) return null;
     return this.userModel.findById(id).lean().exec();
@@ -24,12 +49,13 @@ export class UserService {
   }
 
   async updatePassword(
-    usuario: string,
+    userId: string,
     nuevaPassword: string,
   ): Promise<boolean> {
+    if (!Types.ObjectId.isValid(userId)) return false;
     const passwordHash = await bcrypt.hash(nuevaPassword, 10);
     const result = await this.userModel.updateOne(
-      { usuario },
+      { _id: userId },
       { passwordHash },
     );
     return result.modifiedCount > 0;
@@ -42,11 +68,11 @@ export class UserService {
   }): Promise<UserDocument> {
     const emailNorm = data.email.trim().toLowerCase();
     const existente = await this.userModel
-      .findOne({ usuario: emailNorm })
+      .findOne({ usuario: emailNorm, buildingId: data.buildingId })
       .lean();
     if (existente) {
       throw new ConflictException(
-        `El correo "${emailNorm}" ya está registrado`,
+        'No se pudo completar el registro. Verifique los datos e intente de nuevo.',
       );
     }
     const passwordHash = await bcrypt.hash(data.password, 10);

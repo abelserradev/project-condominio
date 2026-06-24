@@ -48,7 +48,7 @@ export class AvisosController {
   constructor(private readonly avisosService: AvisosService) {}
 
   @Get()
-  @UseGuards(BuildingContextGuard)
+  @UseGuards(BuildingContextGuard, SubscriptionGuard)
   async findAll(@Req() req: RequestWithBuilding) {
     const buildingId = req.building._id;
     const list = await this.avisosService.findAll(buildingId);
@@ -58,7 +58,7 @@ export class AvisosController {
   }
 
   @Get('unread-count')
-  @UseGuards(BuildingContextGuard)
+  @UseGuards(BuildingContextGuard, SubscriptionGuard)
   async getUnreadCount(
     @Req() req: RequestWithBuilding,
     @Query('deviceId') deviceId: string | undefined,
@@ -81,7 +81,7 @@ export class AvisosController {
   }
 
   @Get(':id')
-  @UseGuards(BuildingContextGuard)
+  @UseGuards(BuildingContextGuard, SubscriptionGuard)
   async findOne(@Req() req: RequestWithBuilding, @Param('id') id: string) {
     const buildingId = req.building._id;
     const doc = await this.avisosService.findOne(id, buildingId);

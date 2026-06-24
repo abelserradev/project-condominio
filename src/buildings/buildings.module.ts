@@ -13,7 +13,7 @@ import { CommonModule } from '../common/common.module';
       { name: Building.name, schema: BuildingSchema },
     ]),
     forwardRef(() => AuthModule),
-    CommonModule,
+    forwardRef(() => CommonModule),
   ],
   controllers: [BuildingsController],
   providers: [BuildingsService, BuildingContextGuard],

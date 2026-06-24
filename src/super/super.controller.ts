@@ -6,8 +6,11 @@ import {
   Patch,
   Post,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { SuperAdminGuard } from '../common/guards/super-admin.guard';
 import { SuperService } from './super.service';
@@ -82,5 +85,21 @@ export class SuperController {
     @Body() dto: ResetAdminPasswordDto,
   ) {
     return this.superService.resetAdminPassword(id, dto.nuevaPassword);
+  }
+
+  @Post('buildings/:id/portal-banner')
+  @UseInterceptors(
+    FileInterceptor('banner', { limits: { fileSize: 5 * 1024 * 1024 } }),
+  )
+  async subirPortalBanner(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.superService.subirPortalBanner(id, file);
+  }
+
+  @Patch('buildings/:id/portal-banner/eliminar')
+  async eliminarPortalBanner(@Param('id') id: string) {
+    return this.superService.eliminarPortalBanner(id);
   }
 }

@@ -7,9 +7,22 @@ import { BuildingsService } from '../buildings/buildings.service';
 import { BuildingDocument } from '../buildings/schemas/building.schema';
 import { ApartmentsService } from '../apartments/apartments.service';
 import { UserService } from '../user/user.service';
+import { FilesService } from '../files/files.service';
 import { CreateBuildingDto } from './dto/create-building.dto';
 import { buildPortalUrl } from '../buildings/utils/portal-url.util';
 import { Types } from 'mongoose';
+import {
+  validateFileMimeType,
+  validateFileSize,
+} from '../common/utils/file-validation.util';
+
+const MAX_BANNER_BYTES = 5 * 1024 * 1024;
+const BANNER_MIMES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+]);
 
 @Injectable()
 export class SuperService {
@@ -17,6 +30,7 @@ export class SuperService {
     private readonly buildingsService: BuildingsService,
     private readonly apartmentsService: ApartmentsService,
     private readonly userService: UserService,
+    private readonly filesService: FilesService,
   ) {}
 
   async listarEdificios(): Promise<BuildingDocument[]> {
@@ -126,5 +140,41 @@ export class SuperService {
     );
     if (!admin) throw new NotFoundException('Administrador no encontrado');
     return { ok: true, usuario: admin.usuario };
+  }
+
+  async subirPortalBanner(
+    buildingId: string,
+    file: Express.Multer.File,
+  ): Promise<{ bannerUrl: string }> {
+    const building = await this.buildingsService.findById(buildingId);
+    if (!building) throw new NotFoundException('Edificio no encontrado');
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Debe adjuntar una imagen');
+    }
+    validateFileSize(file.buffer, MAX_BANNER_BYTES);
+    const mime = validateFileMimeType(file.buffer, file.mimetype);
+    if (!BANNER_MIMES.has(mime)) {
+      throw new BadRequestException(
+        'Solo se permiten imágenes JPEG, PNG, WebP o GIF',
+      );
+    }
+    const fileId = await this.filesService.upload(file.buffer, {
+      filename: file.originalname ?? 'banner-portal.jpg',
+      mimetype: mime,
+    });
+    await this.buildingsService.setPortalBanner(
+      new Types.ObjectId(buildingId),
+      fileId,
+    );
+    return { bannerUrl: `/files/${fileId.toString()}` };
+  }
+
+  async eliminarPortalBanner(buildingId: string): Promise<{ ok: true }> {
+    const building = await this.buildingsService.findById(buildingId);
+    if (!building) throw new NotFoundException('Edificio no encontrado');
+    await this.buildingsService.clearPortalBanner(
+      new Types.ObjectId(buildingId),
+    );
+    return { ok: true };
   }
 }

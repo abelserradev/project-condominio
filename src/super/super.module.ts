@@ -4,6 +4,7 @@ import { BuildingsModule } from '../buildings/buildings.module';
 import { ApartmentsModule } from '../apartments/apartments.module';
 import { UserModule } from '../user/user.module';
 import { CommonModule } from '../common/common.module';
+import { FilesModule } from '../files/files.module';
 import { SuperController } from './super.controller';
 import { SuperService } from './super.service';
 
@@ -14,6 +15,7 @@ import { SuperService } from './super.service';
     ApartmentsModule,
     UserModule,
     CommonModule,
+    FilesModule,
   ],
   controllers: [SuperController],
   providers: [SuperService],

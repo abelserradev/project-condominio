@@ -5,7 +5,7 @@ export type UserDocument = HydratedDocument<User>;
 
 @Schema({ timestamps: true, collection: 'usuarios' })
 export class User {
-  @Prop({ required: true, unique: true })
+  @Prop({ required: true })
   usuario: string;
 
   // Email opcional — para autenticación por email en el sistema multi-tenant
@@ -27,4 +27,5 @@ export class User {
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
+UserSchema.index({ usuario: 1, buildingId: 1 }, { unique: true });
 UserSchema.index({ email: 1, buildingId: 1 }, { sparse: true });

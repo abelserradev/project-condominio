@@ -16,6 +16,7 @@ import {
 } from '../common/utils/file-validation.util';
 import { CacheService } from '../common/cache.service';
 import { BuildingContextGuard } from '../common/guards/building-context.guard';
+import { SubscriptionGuard } from '../common/guards/subscription.guard';
 import * as crypto from 'node:crypto';
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024;
@@ -31,7 +32,7 @@ export class OcrController {
   ) {}
 
   @Post('extract-receipt')
-  @UseGuards(BuildingContextGuard)
+  @UseGuards(BuildingContextGuard, SubscriptionGuard)
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @UseInterceptors(
     FileInterceptor('comprobante', { limits: { fileSize: MAX_SIZE_BYTES } }),
