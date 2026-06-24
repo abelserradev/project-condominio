@@ -36,25 +36,51 @@ export class UserService {
   }
 
   async createAdminForBuilding(data: {
-    usuario: string;
+    email: string;
     password: string;
     buildingId: Types.ObjectId;
   }): Promise<UserDocument> {
+    const emailNorm = data.email.trim().toLowerCase();
     const existente = await this.userModel
-      .findOne({ usuario: data.usuario })
+      .findOne({ usuario: emailNorm })
       .lean();
     if (existente) {
-      throw new ConflictException(`El usuario "${data.usuario}" ya existe`);
+      throw new ConflictException(
+        `El correo "${emailNorm}" ya está registrado`,
+      );
     }
     const passwordHash = await bcrypt.hash(data.password, 10);
     const doc = await this.userModel.create({
-      usuario: data.usuario,
+      usuario: emailNorm,
+      email: emailNorm,
       passwordHash,
       rol: 'admin',
       buildingId: data.buildingId,
       isSuperAdmin: false,
     });
     return doc.toObject();
+  }
+
+  async findAdminByBuildingId(
+    buildingId: Types.ObjectId,
+  ): Promise<UserDocument | null> {
+    return this.userModel
+      .findOne({ buildingId, isSuperAdmin: false, rol: 'admin' })
+      .lean()
+      .exec();
+  }
+
+  async resetAdminPasswordByBuilding(
+    buildingId: Types.ObjectId,
+    nuevaPassword: string,
+  ): Promise<UserDocument | null> {
+    const admin = await this.userModel
+      .findOne({ buildingId, isSuperAdmin: false, rol: 'admin' })
+      .exec();
+    if (!admin) return null;
+    admin.passwordHash = await bcrypt.hash(nuevaPassword, 10);
+    await admin.save();
+    return admin.toObject();
   }
 
   async ensureSuperAdmin(usuario: string, password: string): Promise<void> {

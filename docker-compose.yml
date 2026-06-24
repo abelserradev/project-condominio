@@ -16,6 +16,8 @@ services:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       OLLAMA_URL: http://ollama:11434
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-}
     depends_on:
       - mongodb
       - redis

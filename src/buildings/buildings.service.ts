@@ -9,7 +9,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Building, BuildingDocument } from './schemas/building.schema';
 import { buildPortalUrl } from './utils/portal-url.util';
-
+import { MailService } from '../common/services/mail.service';
 const SLUGS_RESERVADOS = new Set([
   'super',
   'admin',
@@ -23,12 +23,22 @@ const SLUGS_RESERVADOS = new Set([
   'registro',
 ]);
 
+function serializarReglamentoFileId(value: unknown): string | null {
+  if (value == null) return null;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object' && 'toString' in value) {
+    return (value as { toString: () => string }).toString();
+  }
+  return null;
+}
+
 @Injectable()
 export class BuildingsService {
   private readonly logger = new Logger(BuildingsService.name);
 
   constructor(
     @InjectModel(Building.name) private buildingModel: Model<BuildingDocument>,
+    private readonly mailService: MailService,
   ) {}
 
   async findBySlug(slug: string): Promise<BuildingDocument | null> {
@@ -87,12 +97,16 @@ export class BuildingsService {
   }
 
   /** Respuesta estándar tras registrar o aprovisionar un tenant nuevo */
-  buildRegisterResponse(building: BuildingDocument): {
+  buildRegisterResponse(
+    building: BuildingDocument,
+    adminEmail?: string,
+  ): {
     slug: string;
     nombre: string;
     portalUrl: string;
     trialHasta: string;
     buildingId: string;
+    adminEmail?: string;
   } {
     return {
       slug: building.slug,
@@ -101,14 +115,22 @@ export class BuildingsService {
       trialHasta:
         building.suscripcionHasta?.toISOString() ?? new Date().toISOString(),
       buildingId: building._id.toString(),
+      ...(adminEmail && { adminEmail }),
     };
   }
 
-  // TODO: integrar nodemailer/Resend cuando haya SMTP en producción
-  logWelcomeEmail(slug: string, adminUsuario: string, portalUrl: string): void {
-    this.logger.log(
-      `[registro] Bienvenida → admin "${adminUsuario}" | portal: ${portalUrl} | edificio: ${slug}`,
-    );
+  async sendWelcomeEmail(
+    adminEmail: string,
+    building: BuildingDocument,
+  ): Promise<void> {
+    const portalUrl = buildPortalUrl(building.slug);
+    const loginUrl = `${portalUrl}/admin/login`;
+    await this.mailService.sendWelcomeEmail({
+      to: adminEmail,
+      nombreEdificio: building.nombre,
+      portalUrl,
+      loginUrl,
+    });
   }
 
   // Usado por el SuperAdmin para renovar suscripciones
@@ -210,5 +232,74 @@ export class BuildingsService {
       diasGracia: b.diasGracia ?? 3,
       datosContactoPago: b.datosContactoPago,
     };
+  }
+
+  async getReglamento(buildingId: Types.ObjectId): Promise<{
+    nombre: string;
+    fileId: string;
+    actualizadoEn: string;
+  } | null> {
+    const b = await this.buildingModel.findById(buildingId).lean().exec();
+    if (!b) return null;
+    const reglamentoDoc = b as {
+      reglamentoFileId?: unknown;
+      reglamentoNombre?: unknown;
+      reglamentoActualizadoEn?: unknown;
+    };
+    const fileId = serializarReglamentoFileId(reglamentoDoc.reglamentoFileId);
+    if (!fileId) return null;
+    return {
+      nombre:
+        typeof reglamentoDoc.reglamentoNombre === 'string'
+          ? reglamentoDoc.reglamentoNombre
+          : 'Reglamento',
+      fileId,
+      actualizadoEn:
+        reglamentoDoc.reglamentoActualizadoEn instanceof Date
+          ? reglamentoDoc.reglamentoActualizadoEn.toISOString()
+          : new Date().toISOString(),
+    };
+  }
+
+  async setReglamento(
+    buildingId: Types.ObjectId,
+    fileId: Types.ObjectId,
+    nombre: string,
+  ): Promise<BuildingDocument> {
+    const updated = await this.buildingModel
+      .findByIdAndUpdate(
+        buildingId,
+        {
+          $set: {
+            reglamentoFileId: fileId,
+            reglamentoNombre: nombre,
+            reglamentoActualizadoEn: new Date(),
+          },
+        },
+        { new: true },
+      )
+      .lean()
+      .exec();
+    if (!updated) throw new NotFoundException('Edificio no encontrado');
+    return updated;
+  }
+
+  async clearReglamento(buildingId: Types.ObjectId): Promise<BuildingDocument> {
+    const updated = await this.buildingModel
+      .findByIdAndUpdate(
+        buildingId,
+        {
+          $unset: {
+            reglamentoFileId: '',
+            reglamentoNombre: '',
+            reglamentoActualizadoEn: '',
+          },
+        },
+        { new: true },
+      )
+      .lean()
+      .exec();
+    if (!updated) throw new NotFoundException('Edificio no encontrado');
+    return updated;
   }
 }

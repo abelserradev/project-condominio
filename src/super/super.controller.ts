@@ -13,6 +13,7 @@ import { SuperAdminGuard } from '../common/guards/super-admin.guard';
 import { SuperService } from './super.service';
 import { CreateBuildingDto } from './dto/create-building.dto';
 import { RenovarSuscripcionDto } from './dto/renovar-suscripcion.dto';
+import { ResetAdminPasswordDto } from './dto/reset-admin-password.dto';
 
 type AuthRequest = {
   user: { sub: string; usuario?: string; isSuperAdmin?: boolean };
@@ -68,5 +69,18 @@ export class SuperController {
       id,
       body.datosContactoPago ?? '',
     );
+  }
+
+  @Get('buildings/:id/admin')
+  async obtenerAdminEdificio(@Param('id') id: string) {
+    return this.superService.obtenerAdminEdificio(id);
+  }
+
+  @Patch('buildings/:id/reset-admin')
+  async resetAdminPassword(
+    @Param('id') id: string,
+    @Body() dto: ResetAdminPasswordDto,
+  ) {
+    return this.superService.resetAdminPassword(id, dto.nuevaPassword);
   }
 }

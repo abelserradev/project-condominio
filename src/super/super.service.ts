@@ -1,9 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { BuildingsService } from '../buildings/buildings.service';
 import { BuildingDocument } from '../buildings/schemas/building.schema';
 import { ApartmentsService } from '../apartments/apartments.service';
 import { UserService } from '../user/user.service';
 import { CreateBuildingDto } from './dto/create-building.dto';
+import { buildPortalUrl } from '../buildings/utils/portal-url.util';
+import { Types } from 'mongoose';
 
 @Injectable()
 export class SuperService {
@@ -46,10 +52,13 @@ export class SuperService {
     );
 
     await this.userService.createAdminForBuilding({
-      usuario: dto.adminUsuario,
+      email: dto.adminEmail,
       password: dto.adminPassword,
       buildingId: building._id,
     });
+
+    const adminEmail = dto.adminEmail.trim().toLowerCase();
+    await this.buildingsService.sendWelcomeEmail(adminEmail, building);
 
     const creado = await this.buildingsService.findById(
       building._id.toString(),
@@ -82,5 +91,40 @@ export class SuperService {
     datos: string,
   ): Promise<BuildingDocument> {
     return this.buildingsService.updateDatosContactoPago(buildingId, datos);
+  }
+
+  async obtenerAdminEdificio(buildingId: string): Promise<{
+    usuario: string;
+    email?: string;
+    portalUrl: string;
+  }> {
+    const building = await this.buildingsService.findById(buildingId);
+    if (!building) throw new NotFoundException('Edificio no encontrado');
+    const admin = await this.userService.findAdminByBuildingId(
+      new Types.ObjectId(buildingId),
+    );
+    if (!admin) throw new NotFoundException('Administrador no encontrado');
+    return {
+      usuario: admin.usuario,
+      email: admin.email,
+      portalUrl: buildPortalUrl(building.slug),
+    };
+  }
+
+  async resetAdminPassword(
+    buildingId: string,
+    nuevaPassword: string,
+  ): Promise<{ ok: true; usuario: string }> {
+    if (!nuevaPassword || nuevaPassword.length < 6) {
+      throw new BadRequestException(
+        'La contraseña debe tener al menos 6 caracteres',
+      );
+    }
+    const admin = await this.userService.resetAdminPasswordByBuilding(
+      new Types.ObjectId(buildingId),
+      nuevaPassword,
+    );
+    if (!admin) throw new NotFoundException('Administrador no encontrado');
+    return { ok: true, usuario: admin.usuario };
   }
 }

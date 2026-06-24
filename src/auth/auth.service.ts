@@ -81,6 +81,16 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
     const isSuperAdmin = user.isSuperAdmin === true;
+    if (
+      !isSuperAdmin &&
+      buildingId &&
+      user.buildingId &&
+      user.buildingId.toString() !== buildingId.toString()
+    ) {
+      throw new UnauthorizedException(
+        'Este usuario no pertenece a este edificio',
+      );
+    }
     if (isSuperAdmin) {
       this.logger.warn(`Login SuperAdmin: ${user.usuario}`);
     }
