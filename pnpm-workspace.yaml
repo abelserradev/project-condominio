@@ -1,6 +1,9 @@
 # pnpm v11 — configuración central (reemplaza package.json#pnpm y .npmrc no-auth)
 shamefullyHoist: true
 
+overrides:
+  multer: ^2.2.0
+
 allowBuilds:
   "@nestjs/core": true
   bcrypt: true
