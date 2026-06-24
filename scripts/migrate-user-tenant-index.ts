@@ -1,10 +1,14 @@
 /**
  * Migración: índice único compuesto usuario + buildingId (multi-tenant).
  *
- * Local (con docker-compose levantado):
+ * Local:
  *   MONGODB_URI="mongodb://localhost:27017/condominio" npx ts-node scripts/migrate-user-tenant-index.ts
  *
- * Coolify: terminal del servicio backend (MONGODB_URI ya definida en env).
+ * Producción (contenedor API; MONGODB_URI ya en env del servicio):
+ *   pnpm run migrate:user-tenant-index
+ *   # o: node dist/scripts/migrate-user-tenant-index.js
+ *
+ * Nota: ts-node/scripts/ no existen en la imagen Docker; solo dist/scripts/*.js
  */
 import mongoose from 'mongoose';
 
