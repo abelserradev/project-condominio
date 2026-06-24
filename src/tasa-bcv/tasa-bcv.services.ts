@@ -28,7 +28,9 @@ export interface TasaBcvResponse {
   compra: number | null;
   venta: number | null;
   promedio: number;
-  fechaactualizacion: string;
+  /** DolarAPI cambió el casing entre versiones */
+  fechaactualizacion?: string;
+  fechaActualizacion?: string;
 }
 
 export type TasaBcvResult = { promedio: number; fechaActualizacion?: string };
@@ -90,7 +92,7 @@ export class TasaBcvService {
     const data = (await res.json()) as TasaBcvResponse;
     return {
       promedio: data.promedio,
-      fechaActualizacion: data.fechaactualizacion,
+      fechaActualizacion: data.fechaActualizacion ?? data.fechaactualizacion,
     };
   }
 

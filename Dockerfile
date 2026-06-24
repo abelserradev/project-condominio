@@ -18,6 +18,8 @@ FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN ./node_modules/.bin/nest build
+# Scripts de migración/ops compilados para ejecutar en prod: node dist/scripts/...
+RUN ./node_modules/.bin/tsc -p tsconfig.scripts.json
 
 FROM node:22-alpine AS runner
 ENV NODE_ENV=production
