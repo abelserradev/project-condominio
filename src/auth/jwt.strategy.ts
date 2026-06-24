@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { resolveJwtSecret } from '../common/utils/jwt-secret.util';
 
 // Payload extendido para el sistema multi-tenant
 type JwtPayload = {
@@ -18,16 +19,10 @@ type JwtPayload = {
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor() {
-    const jwtSecret = process.env.JWT_SECRET;
-    if (!jwtSecret || jwtSecret.trim() === '') {
-      throw new Error(
-        'JWT_SECRET debe estar definido en las variables de entorno',
-      );
-    }
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: jwtSecret,
+      secretOrKey: resolveJwtSecret(),
     });
   }
 
