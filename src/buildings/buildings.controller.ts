@@ -3,11 +3,15 @@ import {
   Get,
   Param,
   Req,
+  Headers,
+  Query,
   UseGuards,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { BuildingsService } from './buildings.service';
 import { BuildingContextGuard } from '../common/guards/building-context.guard';
+import { SubscriptionGuard } from '../common/guards/subscription.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { BuildingDocument } from './schemas/building.schema';
 
@@ -30,8 +34,24 @@ export class BuildingsController {
     return { disponible: !existente };
   }
 
+  @Get('portal')
+  async getPortal(
+    @Headers('x-building-slug') slugHeader?: string,
+    @Query('slug') slugQuery?: string,
+  ) {
+    const slug = (slugHeader ?? slugQuery ?? '').trim().toLowerCase();
+    if (!slug) {
+      throw new BadRequestException(
+        'Edificio no especificado. Incluye x-building-slug o ?slug=',
+      );
+    }
+    const info = await this.buildingsService.getPortalInfo(slug);
+    if (!info) throw new NotFoundException('Edificio no encontrado');
+    return info;
+  }
+
   @Get('suscripcion')
-  @UseGuards(BuildingContextGuard, JwtAuthGuard)
+  @UseGuards(BuildingContextGuard, SubscriptionGuard, JwtAuthGuard)
   async getSuscripcion(@Req() req: BuildingRequest) {
     const info = await this.buildingsService.getSuscripcionInfo(
       req.building._id,

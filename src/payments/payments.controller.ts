@@ -32,7 +32,7 @@ export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
   @Post()
-  @UseGuards(CsrfGuard, BuildingContextGuard)
+  @UseGuards(CsrfGuard, BuildingContextGuard, SubscriptionGuard)
   @UseInterceptors(
     FileInterceptor('comprobante', { limits: { fileSize: 5 * 1024 * 1024 } }),
   )
@@ -50,7 +50,7 @@ export class PaymentsController {
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard, BuildingContextGuard)
+  @UseGuards(JwtAuthGuard, BuildingContextGuard, SubscriptionGuard)
   async findAll(
     @Req() req: RequestWithBuilding,
     @Query('piso') piso: string,
@@ -78,7 +78,7 @@ export class PaymentsController {
 
   // Endpoint público para residentes — requiere piso y apartamento obligatorios
   @Get('public/por-apartamento')
-  @UseGuards(BuildingContextGuard)
+  @UseGuards(BuildingContextGuard, SubscriptionGuard)
   async findPublicByApartamento(
     @Req() req: RequestWithBuilding,
     @Query('piso') piso: string,
@@ -128,7 +128,7 @@ export class PaymentsController {
   }
 
   @Get(':id')
-  @UseGuards(JwtAuthGuard, BuildingContextGuard)
+  @UseGuards(JwtAuthGuard, BuildingContextGuard, SubscriptionGuard)
   async findOne(@Param('id') id: string, @Req() req: RequestWithBuilding) {
     if (!id || id.trim() === '') {
       throw new BadRequestException('ID requerido');

@@ -35,12 +35,16 @@ export class AuthService {
   ): Promise<LoginResult> {
     const building = await this.resolveBuilding(buildingSlug);
     const buildingId = building?._id;
-    const usuarioNormalizado = usuario.trim();
-    const user = await this.userService.findByUsuario(usuarioNormalizado);
-    if (user) {
-      return this.loginAsAdmin(user, contraseña, building, buildingId);
-    }
+    const usuarioNormalizado = usuario.trim().toLowerCase();
+
     if (buildingId && building) {
+      const adminTenant = await this.userService.findAdminByUsuarioAndBuilding(
+        usuarioNormalizado,
+        buildingId,
+      );
+      if (adminTenant) {
+        return this.loginAsAdmin(adminTenant, contraseña, building, buildingId);
+      }
       const ownerResult = await this.loginAsOwner(
         usuarioNormalizado,
         contraseña,
@@ -50,7 +54,18 @@ export class AuthService {
       if (ownerResult) {
         return ownerResult;
       }
+      this.logger.warn(
+        `Login fallido en edificio ${building.slug}: ${usuarioNormalizado}`,
+      );
+      throw new UnauthorizedException('Credenciales inválidas');
     }
+
+    const superAdmin =
+      await this.userService.findSuperAdminByUsuario(usuarioNormalizado);
+    if (superAdmin) {
+      return this.loginAsAdmin(superAdmin, contraseña, building, buildingId);
+    }
+
     this.logger.warn(`Login fallido: usuario no encontrado: ${usuario}`);
     throw new UnauthorizedException('Credenciales inválidas');
   }
@@ -81,16 +96,6 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
     const isSuperAdmin = user.isSuperAdmin === true;
-    if (
-      !isSuperAdmin &&
-      buildingId &&
-      user.buildingId &&
-      user.buildingId.toString() !== buildingId.toString()
-    ) {
-      throw new UnauthorizedException(
-        'Este usuario no pertenece a este edificio',
-      );
-    }
     if (isSuperAdmin) {
       this.logger.warn(`Login SuperAdmin: ${user.usuario}`);
     }

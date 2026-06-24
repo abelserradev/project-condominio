@@ -31,7 +31,7 @@ export class ReglamentosController {
   ) {}
 
   @Get()
-  @UseGuards(BuildingContextGuard)
+  @UseGuards(BuildingContextGuard, SubscriptionGuard)
   async obtener(@Req() req: RequestWithBuilding) {
     const reglamento = await this.buildingsService.getReglamento(
       req.building._id,

@@ -8,8 +8,8 @@ import { CacheService } from '../common/cache.service';
 const DOLAR_OFICIAL_URL = 'https://ve.dolarapi.com/v1/dolares/oficial';
 const DOLAR_HISTORICOS_URL =
   'https://ve.dolarapi.com/v1/historicos/dolares/oficial';
-const TTL_MS = 26 * 60 * 60 * 1000; // 26h - cubre el día completo Venezuela
-const TTL_HISTORICO_MS = 7 * 24 * 60 * 60 * 1000; // 7 días - datos históricos no cambian
+const TTL_INTRADIA_MS = 60 * 60 * 1000; // 1h — refresco intradía sin martillar DolarAPI
+const TTL_HISTORICO_MS = 7 * 24 * 60 * 60 * 1000;
 
 const FECHA_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_DAYS_HISTORY = 7; // Limite para buscar tasa en días anteriores
@@ -54,17 +54,24 @@ export class TasaBcvService {
   constructor(private readonly cacheService: CacheService) {}
 
   async getTasa(): Promise<TasaBcvResult> {
-    const key = `tasa-bcv:${getVenezuelaDateString()}`;
+    const hoyVe = getVenezuelaDateString();
+    const key = `tasa-bcv:${hoyVe}`;
 
     const cached = await this.cacheService.get<TasaBcvResult>(key);
-    if (cached) return cached;
+    if (cached) {
+      const fechaTasa = cached.fechaActualizacion?.slice(0, 10);
+      if (fechaTasa === hoyVe) {
+        return cached;
+      }
+      await this.cacheService.delete(key);
+    }
 
     const pending = this.pendingPromises.get(key);
     if (pending) return pending;
 
     const fetchPromise = this.fetchTasaFromApi()
       .then(async (result) => {
-        await this.cacheService.set(key, result, TTL_MS);
+        await this.cacheService.set(key, result, TTL_INTRADIA_MS);
         this.pendingPromises.delete(key);
         return result;
       })

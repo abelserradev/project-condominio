@@ -68,6 +68,12 @@ export class Building {
 
   @Prop({ type: Date })
   reglamentoActualizadoEn?: Date;
+
+  @Prop({ type: Types.ObjectId })
+  portalBannerFileId?: Types.ObjectId;
+
+  @Prop({ type: Date })
+  portalBannerActualizadoEn?: Date;
 }
 
 export const BuildingSchema = SchemaFactory.createForClass(Building);

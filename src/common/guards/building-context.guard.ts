@@ -29,10 +29,7 @@ export class BuildingContextGuard implements CanActivate {
       throw new NotFoundException('Edificio no encontrado');
     }
 
-    if (!building.activo) {
-      throw new NotFoundException('Edificio inactivo');
-    }
-
+    // Suspendido puede tener activo=false; el bloqueo lo aplica SubscriptionGuard
     req.building = building;
     return true;
   }

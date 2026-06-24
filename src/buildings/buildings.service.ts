@@ -9,6 +9,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Building, BuildingDocument } from './schemas/building.schema';
 import { buildPortalUrl } from './utils/portal-url.util';
+import { evaluarAccesoPortal } from './utils/portal-access.util';
 import { MailService } from '../common/services/mail.service';
 const SLUGS_RESERVADOS = new Set([
   'super',
@@ -23,13 +24,17 @@ const SLUGS_RESERVADOS = new Set([
   'registro',
 ]);
 
-function serializarReglamentoFileId(value: unknown): string | null {
+function serializarObjectId(value: unknown): string | null {
   if (value == null) return null;
   if (typeof value === 'string') return value;
   if (typeof value === 'object' && 'toString' in value) {
     return (value as { toString: () => string }).toString();
   }
   return null;
+}
+
+function serializarReglamentoFileId(value: unknown): string | null {
+  return serializarObjectId(value);
 }
 
 @Injectable()
@@ -155,7 +160,11 @@ export class BuildingsService {
       .findByIdAndUpdate(
         buildingId,
         {
-          $set: { estadoSuscripcion: 'activo', suscripcionHasta: nuevaFecha },
+          $set: {
+            estadoSuscripcion: 'activo',
+            suscripcionHasta: nuevaFecha,
+            activo: true,
+          },
           $push: {
             historialRenovaciones: {
               fecha: new Date(),
@@ -205,6 +214,83 @@ export class BuildingsService {
       .findByIdAndUpdate(
         buildingId,
         { $set: { datosContactoPago } },
+        { new: true },
+      )
+      .lean()
+      .exec();
+    if (!updated) throw new NotFoundException('Edificio no encontrado');
+    return updated;
+  }
+
+  async getPortalInfo(slug: string): Promise<{
+    nombre: string;
+    slug: string;
+    activo: boolean;
+    estadoSuscripcion: string;
+    suscripcionHasta?: string;
+    diasGracia: number;
+    portalAccesible: boolean;
+    motivoBloqueo?: 'suspendido' | 'vencido';
+    bannerUrl?: string;
+    datosContactoPago?: string;
+  } | null> {
+    const building = await this.findBySlug(slug);
+    if (!building) return null;
+
+    const acceso = evaluarAccesoPortal(building);
+    const bannerFileId = serializarObjectId(
+      (building as { portalBannerFileId?: unknown }).portalBannerFileId,
+    );
+
+    return {
+      nombre: building.nombre,
+      slug: building.slug,
+      activo: building.activo,
+      estadoSuscripcion: building.estadoSuscripcion,
+      suscripcionHasta: building.suscripcionHasta?.toISOString(),
+      diasGracia: building.diasGracia ?? 3,
+      portalAccesible: acceso.portalAccesible,
+      ...(acceso.motivoBloqueo && { motivoBloqueo: acceso.motivoBloqueo }),
+      ...(bannerFileId && { bannerUrl: `/files/${bannerFileId}` }),
+      ...(building.datosContactoPago && {
+        datosContactoPago: building.datosContactoPago,
+      }),
+    };
+  }
+
+  async setPortalBanner(
+    buildingId: Types.ObjectId,
+    fileId: Types.ObjectId,
+  ): Promise<BuildingDocument> {
+    const updated = await this.buildingModel
+      .findByIdAndUpdate(
+        buildingId,
+        {
+          $set: {
+            portalBannerFileId: fileId,
+            portalBannerActualizadoEn: new Date(),
+          },
+        },
+        { new: true },
+      )
+      .lean()
+      .exec();
+    if (!updated) throw new NotFoundException('Edificio no encontrado');
+    return updated;
+  }
+
+  async clearPortalBanner(
+    buildingId: Types.ObjectId,
+  ): Promise<BuildingDocument> {
+    const updated = await this.buildingModel
+      .findByIdAndUpdate(
+        buildingId,
+        {
+          $unset: {
+            portalBannerFileId: '',
+            portalBannerActualizadoEn: '',
+          },
+        },
         { new: true },
       )
       .lean()
