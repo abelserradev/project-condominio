@@ -27,10 +27,6 @@ export class OnboardingService {
       dto.apartamentosPorPiso,
     );
 
-    // #region agent log
-    fetch('http://127.0.0.1:7770/ingest/8d24192f-e050-43eb-bac5-e21e3ba0ea2e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5c886b'},body:JSON.stringify({sessionId:'5c886b',runId:'pre-fix',hypothesisId:'H2-H4',location:'onboarding.service.ts:registerBuilding',message:'Edificio registrado',data:{slug:building.slug,buildingId:building._id?.toString(),dtoTotalPisos:dto.totalPisos,dtoAptsPorPiso:dto.apartamentosPorPiso,storedTotalPisos:building.totalPisos,storedAptsPorPiso:building.apartamentosPorPiso},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-
     await this.userService.createAdminForBuilding({
       email: dto.adminEmail,
       password: dto.adminPassword,

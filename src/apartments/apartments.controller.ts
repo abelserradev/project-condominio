@@ -14,12 +14,37 @@ export class ApartmentsController {
   @UseGuards(BuildingContextGuard, SubscriptionGuard)
   async findAll(@Req() req: RequestWithBuilding, @Query('piso') piso?: string) {
     const buildingId = req.building._id;
+    const { totalPisos, apartamentosPorPiso } = req.building;
+
+    const ensureSeed = async (): Promise<void> => {
+      const existentes = await this.apartmentsService.findAll(buildingId);
+      if (existentes.length > 0) return;
+      if (totalPisos < 1 || apartamentosPorPiso < 1) return;
+      await this.apartmentsService.seedForBuilding(
+        buildingId,
+        totalPisos,
+        apartamentosPorPiso,
+      );
+    };
+
     if (piso != null && piso !== '') {
       const n = Number.parseInt(piso, 10);
-      if (!Number.isNaN(n))
-        return this.apartmentsService.findByPiso(n, buildingId);
+      if (!Number.isNaN(n)) {
+        let list = await this.apartmentsService.findByPiso(n, buildingId);
+        if (list.length === 0) {
+          await ensureSeed();
+          list = await this.apartmentsService.findByPiso(n, buildingId);
+        }
+        return list;
+      }
     }
-    return this.apartmentsService.findAll(buildingId);
+
+    let list = await this.apartmentsService.findAll(buildingId);
+    if (list.length === 0) {
+      await ensureSeed();
+      list = await this.apartmentsService.findAll(buildingId);
+    }
+    return list;
   }
 
   @Get(':idUnico')
