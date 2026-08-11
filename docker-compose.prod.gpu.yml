@@ -1,8 +1,3 @@
-# Override opcional para servidores con NVIDIA Container Toolkit instalado.
-# Coolify: añadir como compose adicional o fusionar manualmente.
-#
-# Requiere: nvidia-driver + nvidia-container-toolkit en el host.
-# Verificar: nvidia-smi && docker run --rm --gpus all nvidia/cuda:12.0-base nvidia-smi
 
 services:
   ollama:
