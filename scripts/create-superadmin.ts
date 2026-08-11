@@ -47,7 +47,7 @@ function requireBootstrapToken(): void {
 
 async function main(): Promise<void> {
   requireBootstrapToken();
-  const usuario = requireEnv('SUPERADMIN_USUARIO');
+  const usuario = requireEnv('SUPERADMIN_USUARIO').trim();
   const password = requireEnv('SUPERADMIN_PASSWORD');
   assertPasswordStrength(password);
 
@@ -86,7 +86,7 @@ async function main(): Promise<void> {
   }
 
   console.log(
-    '   Inicia sesión en /admin/login — serás redirigido a /super/edificios',
+    '   Inicia sesión en /super/login (plataforma) → /super/edificios',
   );
   await mongoose.disconnect();
 }

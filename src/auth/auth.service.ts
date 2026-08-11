@@ -60,23 +60,25 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    const superAdmin =
-      await this.userService.findSuperAdminByUsuario(usuarioNormalizado);
+    const superAdmin = await this.userService.findSuperAdminByUsuario(usuario);
     if (superAdmin) {
       return this.loginAsAdmin(superAdmin, contraseña, building, buildingId);
     }
 
-    this.logger.warn(`Login fallido: usuario no encontrado: ${usuario}`);
+    this.logger.warn(
+      `Login fallido: usuario no encontrado: ${usuarioNormalizado}`,
+    );
     throw new UnauthorizedException('Credenciales inválidas');
   }
 
   private async resolveBuilding(
     buildingSlug?: string,
   ): Promise<BuildingDocument | null> {
-    if (!buildingSlug) {
+    const slug = buildingSlug?.trim();
+    if (!slug) {
       return null;
     }
-    return this.buildingsService.findBySlug(buildingSlug);
+    return this.buildingsService.findBySlug(slug);
   }
 
   private async loginAsAdmin(
