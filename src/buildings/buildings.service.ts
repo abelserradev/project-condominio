@@ -233,6 +233,8 @@ export class BuildingsService {
     motivoBloqueo?: 'suspendido' | 'vencido';
     bannerUrl?: string;
     datosContactoPago?: string;
+    totalPisos: number;
+    apartamentosPorPiso: number;
   } | null> {
     const building = await this.findBySlug(slug);
     if (!building) return null;
@@ -255,6 +257,8 @@ export class BuildingsService {
       ...(building.datosContactoPago && {
         datosContactoPago: building.datosContactoPago,
       }),
+      totalPisos: building.totalPisos,
+      apartamentosPorPiso: building.apartamentosPorPiso,
     };
   }
 
@@ -307,6 +311,8 @@ export class BuildingsService {
     suscripcionHasta: Date | undefined;
     diasGracia: number;
     datosContactoPago?: string;
+    totalPisos: number;
+    apartamentosPorPiso: number;
   } | null> {
     const b = await this.buildingModel.findById(buildingId).lean().exec();
     if (!b) return null;
@@ -317,6 +323,8 @@ export class BuildingsService {
       suscripcionHasta: b.suscripcionHasta,
       diasGracia: b.diasGracia ?? 3,
       datosContactoPago: b.datosContactoPago,
+      totalPisos: b.totalPisos,
+      apartamentosPorPiso: b.apartamentosPorPiso,
     };
   }
 
