@@ -62,8 +62,14 @@ export class ApartmentsService {
         { ordered: false },
       );
       insertedCount = result.length;
-    } catch (err) {
-      seedError = err instanceof Error ? err.message : String(err);
+    } catch (err: unknown) {
+      const mongoErr = err as { code?: number; writeErrors?: unknown[] };
+      if (mongoErr.code === 11000) {
+        insertedCount = docs.length - (mongoErr.writeErrors?.length ?? 0);
+      } else {
+        seedError = err instanceof Error ? err.message : String(err);
+        throw err;
+      }
     }
     // #region agent log
     fetch('http://127.0.0.1:7770/ingest/8d24192f-e050-43eb-bac5-e21e3ba0ea2e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5c886b'},body:JSON.stringify({sessionId:'5c886b',runId:'pre-fix',hypothesisId:'H2',location:'apartments.service.ts:seedForBuilding',message:'Seed apartamentos',data:{buildingId:buildingId.toString(),totalPisos,apartamentosPorPiso,expectedDocs:docs.length,insertedCount,seedError},timestamp:Date.now()})}).catch(()=>{});
