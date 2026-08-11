@@ -54,25 +54,14 @@ export class ApartmentsService {
       }
     }
     // insertMany con ordered: false para ignorar duplicados si ya existe
-    let insertedCount = 0;
-    let seedError: string | null = null;
     try {
-      const result = await this.apartmentModel.insertMany(
+      await this.apartmentModel.insertMany(
         docs as Parameters<typeof this.apartmentModel.insertMany>[0],
         { ordered: false },
       );
-      insertedCount = result.length;
     } catch (err: unknown) {
-      const mongoErr = err as { code?: number; writeErrors?: unknown[] };
-      if (mongoErr.code === 11000) {
-        insertedCount = docs.length - (mongoErr.writeErrors?.length ?? 0);
-      } else {
-        seedError = err instanceof Error ? err.message : String(err);
-        throw err;
-      }
+      const mongoErr = err as { code?: number };
+      if (mongoErr.code !== 11000) throw err;
     }
-    // #region agent log
-    fetch('http://127.0.0.1:7770/ingest/8d24192f-e050-43eb-bac5-e21e3ba0ea2e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5c886b'},body:JSON.stringify({sessionId:'5c886b',runId:'pre-fix',hypothesisId:'H2',location:'apartments.service.ts:seedForBuilding',message:'Seed apartamentos',data:{buildingId:buildingId.toString(),totalPisos,apartamentosPorPiso,expectedDocs:docs.length,insertedCount,seedError},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
   }
 }
