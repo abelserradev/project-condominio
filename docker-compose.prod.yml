@@ -55,13 +55,6 @@ services:
       - ollama_data:/root/.ollama
     networks:
       - condominio_network
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
 
   # Opcional: despliega frontend en el mismo stack para que api:3001 resuelva sin config extra
   # frontend:
