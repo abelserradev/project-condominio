@@ -54,11 +54,19 @@ export class ApartmentsService {
       }
     }
     // insertMany con ordered: false para ignorar duplicados si ya existe
-    await this.apartmentModel
-      .insertMany(
+    let insertedCount = 0;
+    let seedError: string | null = null;
+    try {
+      const result = await this.apartmentModel.insertMany(
         docs as Parameters<typeof this.apartmentModel.insertMany>[0],
         { ordered: false },
-      )
-      .catch(() => {});
+      );
+      insertedCount = result.length;
+    } catch (err) {
+      seedError = err instanceof Error ? err.message : String(err);
+    }
+    // #region agent log
+    fetch('http://127.0.0.1:7770/ingest/8d24192f-e050-43eb-bac5-e21e3ba0ea2e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5c886b'},body:JSON.stringify({sessionId:'5c886b',runId:'pre-fix',hypothesisId:'H2',location:'apartments.service.ts:seedForBuilding',message:'Seed apartamentos',data:{buildingId:buildingId.toString(),totalPisos,apartamentosPorPiso,expectedDocs:docs.length,insertedCount,seedError},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
   }
 }
