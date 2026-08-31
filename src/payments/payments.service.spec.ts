@@ -5,6 +5,7 @@ import { PaymentsService } from './payments.service';
 import { Payment } from './schemas/payment.schema';
 import { FilesService } from '../files/files.service';
 import { AdministracionService } from '../administracion/administracion.service';
+import { CobranzaSnapshotService } from '../administracion/cobranza-snapshot.service';
 import { CacheService } from '../common/cache.service';
 import { OcrService } from '../ocr/ocr.service';
 
@@ -35,6 +36,10 @@ describe('PaymentsService — aislamiento multi-tenant', () => {
         { provide: getModelToken(Payment.name), useValue: mockPaymentModel },
         { provide: FilesService, useValue: {} },
         { provide: AdministracionService, useValue: {} },
+        {
+          provide: CobranzaSnapshotService,
+          useValue: { programarRebuild: () => {} },
+        },
         {
           provide: CacheService,
           useValue: { generateKey: () => 'k', get: () => null, set: () => {} },

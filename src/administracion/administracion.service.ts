@@ -5,6 +5,7 @@ import { Recibo, ReciboDocument, Abono } from './schemas/recibo.schema';
 import { FilesService } from '../files/files.service';
 import { CacheService } from '../common/cache.service';
 import { AbonoApartamentoService } from './abono-apartamento.service';
+import { CobranzaSnapshotService } from './cobranza-snapshot.service';
 
 export type CreateReciboInput = {
   buildingId?: Types.ObjectId;
@@ -14,9 +15,10 @@ export type CreateReciboInput = {
   montoUsd: number;
   tipoDeuda: string;
   fechaReportada: string;
-  facturaBuffer: Buffer;
-  facturaFilename: string;
+  facturaBuffer?: Buffer;
+  facturaFilename?: string;
   facturaMimetype?: string;
+  facturaFileId?: string;
 };
 
 export type UpdateManyByMesesInput = {
@@ -67,14 +69,20 @@ export class AdministracionService {
     private readonly filesService: FilesService,
     @Inject(CacheService) private readonly cacheService: CacheService,
     private readonly abonoApartamentoService: AbonoApartamentoService,
+    private readonly cobranzaSnapshotService: CobranzaSnapshotService,
   ) {}
 
   async create(input: CreateReciboInput): Promise<ReciboDocument> {
     const idUnico = `P${input.piso}-A${input.apartamento}`;
-    const fileId = await this.filesService.upload(input.facturaBuffer, {
-      filename: input.facturaFilename,
-      mimetype: input.facturaMimetype,
-    });
+    let fileId: Types.ObjectId | undefined;
+    if (input.facturaBuffer) {
+      fileId = await this.filesService.upload(input.facturaBuffer, {
+        filename: input.facturaFilename ?? idUnico,
+        mimetype: input.facturaMimetype,
+      });
+    } else if (input.facturaFileId) {
+      fileId = new Types.ObjectId(input.facturaFileId);
+    }
     const doc = await this.reciboModel.create({
       buildingId: input.buildingId,
       piso: input.piso,
@@ -92,7 +100,36 @@ export class AdministracionService {
     const result = doc.toObject();
     await this.cacheService.deletePattern(`recibos:.*`);
     await this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
+    if (input.buildingId) {
+      this.cobranzaSnapshotService.programarRebuild(input.buildingId);
+    }
     return result;
+  }
+
+  async uploadFacturaFile(
+    buffer: Buffer,
+    filename: string,
+    mimetype?: string,
+  ): Promise<string> {
+    const id = await this.filesService.upload(buffer, {
+      filename,
+      mimetype,
+    });
+    return id.toString();
+  }
+
+  async findPendientesByApto(
+    piso: number,
+    apartamento: number,
+    buildingId?: Types.ObjectId,
+  ): Promise<ReciboDocument[]> {
+    return this.findPendientesConSaldo({ buildingId, piso, apartamento });
+  }
+
+  async createReciboFromForm(
+    input: CreateReciboInput,
+  ): Promise<ReciboDocument> {
+    return this.create(input);
   }
 
   async findAll(filters: {
@@ -259,6 +296,9 @@ export class AdministracionService {
         numeroComprobante: params.numeroComprobante,
       });
       result = { count, ids };
+    }
+    if (params.buildingId) {
+      this.cobranzaSnapshotService.programarRebuild(params.buildingId);
     }
     return result;
   }

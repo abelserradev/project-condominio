@@ -13,6 +13,9 @@ const FILE_SIGNATURES: Record<string, number[][]> = {
   ],
   'image/webp': [[0x52, 0x49, 0x46, 0x46]], // WebP tiene un header más complejo, esto es básico
   'application/pdf': [[0x25, 0x50, 0x44, 0x46]],
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': [
+    [0x50, 0x4b, 0x03, 0x04], // ZIP (Office Open XML)
+  ],
 };
 
 const ALLOWED_MIME_TYPES = [
@@ -21,6 +24,7 @@ const ALLOWED_MIME_TYPES = [
   'image/gif',
   'image/webp',
   'application/pdf',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 ];
 
 /**

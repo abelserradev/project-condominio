@@ -9,6 +9,7 @@ import { Model, Types } from 'mongoose';
 import { Payment, paymentdocument } from './schemas/payment.schema';
 import { FilesService } from '../files/files.service';
 import { AdministracionService } from '../administracion/administracion.service';
+import { CobranzaSnapshotService } from '../administracion/cobranza-snapshot.service';
 import { CacheService } from '../common/cache.service';
 import { OcrService } from '../ocr/ocr.service';
 import type { ComprobanteExtractionDto } from '../ocr/dto/comprobante-extraction.dto';
@@ -64,6 +65,8 @@ export class PaymentsService {
     private readonly filesService: FilesService,
     @Inject(forwardRef(() => AdministracionService))
     private readonly administracionService: AdministracionService,
+    @Inject(forwardRef(() => CobranzaSnapshotService))
+    private readonly cobranzaSnapshotService: CobranzaSnapshotService,
     @Inject(CacheService) private readonly cacheService: CacheService,
     private readonly ocrService: OcrService,
   ) {}
@@ -213,6 +216,7 @@ export class PaymentsService {
     await this.cacheService.deletePattern(`payments:.*`);
     await this.cacheService.deletePattern(`recibos:.*`);
     await this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
+    this.cobranzaSnapshotService.programarRebuild(buildingId);
     return pagoDoc;
   }
 }
