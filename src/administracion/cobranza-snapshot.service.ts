@@ -12,9 +12,13 @@ import {
 } from './cobranza-report.service';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
+const LOCK_TTL_SEC = 120;
 
 const cacheKey = (buildingId: Types.ObjectId): string =>
   `reporte:cobranza:${buildingId.toString()}`;
+
+const lockKey = (buildingId: Types.ObjectId): string =>
+  `snapshot:lock:${buildingId.toString()}`;
 
 export type FuenteReporte = 'snapshot' | 'cache' | 'rebuild';
 
@@ -31,7 +35,6 @@ export interface ReporteCobranzaConFuente extends ReporteCobranza {
 @Injectable()
 export class CobranzaSnapshotService {
   private readonly logger = new Logger(CobranzaSnapshotService.name);
-  private readonly rebuildsEnCurso = new Set<string>();
 
   constructor(
     @InjectModel(CobranzaSnapshot.name)
@@ -41,32 +44,25 @@ export class CobranzaSnapshotService {
   ) {}
 
   async rebuild(buildingId: Types.ObjectId): Promise<void> {
-    const clave = buildingId.toString();
-    // Evita rebuilds duplicados en el mismo proceso si llegan eventos en ráfaga.
-    if (this.rebuildsEnCurso.has(clave)) return;
-    this.rebuildsEnCurso.add(clave);
+    const claveLock = lockKey(buildingId);
+    const adquirio = await this.cacheService.acquireLock(
+      claveLock,
+      LOCK_TTL_SEC,
+    );
+    if (!adquirio) {
+      this.logger.debug(
+        `Rebuild omitido: lock activo para ${buildingId.toString()}`,
+      );
+      return;
+    }
     try {
-      const reporte = await this.cobranzaReportService.build(buildingId);
-      await this.snapshotModel
-        .findOneAndUpdate(
-          { buildingId },
-          {
-            $set: {
-              actualizadoEn: new Date(),
-              resumen: reporte.resumen,
-              filas: reporte.filas,
-            },
-            $inc: { version: 1 },
-          },
-          { upsert: true, new: true },
-        )
-        .exec();
-      await this.cacheService.delete(cacheKey(buildingId));
+      await this.persistirRebuild(buildingId);
     } catch (err) {
-      // El snapshot queda stale; la próxima lectura con fallback lo reintenta.
-      this.logger.warn(`Rebuild cobranza falló para ${clave}: ${String(err)}`);
+      this.logger.warn(
+        `Rebuild cobranza falló para ${buildingId.toString()}: ${String(err)}`,
+      );
     } finally {
-      this.rebuildsEnCurso.delete(clave);
+      await this.cacheService.releaseLock(claveLock);
     }
   }
 
@@ -97,7 +93,58 @@ export class CobranzaSnapshotService {
       return reporte;
     }
 
-    // Cold start (REQ-015): primera lectura del edificio sin snapshot.
+    // Cold start (REQ-015): lock evita dos rebuilds concurrentes en multi-instancia.
+    const claveLock = lockKey(buildingId);
+    const adquirio = await this.cacheService.acquireLock(
+      claveLock,
+      LOCK_TTL_SEC,
+    );
+    if (!adquirio) {
+      const esperado = await this.esperarSnapshot(buildingId);
+      if (esperado) {
+        const reporte = this.mapearSnapshot(esperado, 'snapshot');
+        await this.cacheService.set(key, reporte, CACHE_TTL_MS);
+        return reporte;
+      }
+    }
+
+    try {
+      const recheck = await this.snapshotModel
+        .findOne({ buildingId })
+        .lean()
+        .exec();
+      if (recheck) {
+        const reporte = this.mapearSnapshot(recheck, 'snapshot');
+        await this.cacheService.set(key, reporte, CACHE_TTL_MS);
+        return reporte;
+      }
+
+      const reporte = await this.cobranzaReportService.build(buildingId);
+      await this.snapshotModel
+        .findOneAndUpdate(
+          { buildingId },
+          {
+            $set: {
+              actualizadoEn: new Date(),
+              resumen: reporte.resumen,
+              filas: reporte.filas,
+            },
+            $inc: { version: 1 },
+          },
+          { upsert: true },
+        )
+        .exec();
+      const conFuente = this.mapearReporte(reporte, 'rebuild');
+      await this.cacheService.set(key, conFuente, CACHE_TTL_MS);
+      return conFuente;
+    } finally {
+      if (adquirio) {
+        await this.cacheService.releaseLock(claveLock);
+      }
+    }
+  }
+
+  private async persistirRebuild(buildingId: Types.ObjectId): Promise<void> {
     const reporte = await this.cobranzaReportService.build(buildingId);
     await this.snapshotModel
       .findOneAndUpdate(
@@ -110,12 +157,27 @@ export class CobranzaSnapshotService {
           },
           $inc: { version: 1 },
         },
-        { upsert: true },
+        { upsert: true, new: true },
       )
       .exec();
-    const conFuente = this.mapearReporte(reporte, 'rebuild');
-    await this.cacheService.set(key, conFuente, CACHE_TTL_MS);
-    return conFuente;
+    await this.cacheService.delete(cacheKey(buildingId));
+  }
+
+  /** Poll breve mientras otro worker termina el cold start. */
+  private async esperarSnapshot(
+    buildingId: Types.ObjectId,
+    intentos = 8,
+    delayMs = 400,
+  ): Promise<CobranzaSnapshot | null> {
+    for (let i = 0; i < intentos; i++) {
+      await new Promise((r) => setTimeout(r, delayMs));
+      const doc = await this.snapshotModel
+        .findOne({ buildingId })
+        .lean()
+        .exec();
+      if (doc) return doc;
+    }
+    return null;
   }
 
   private mapearSnapshot(

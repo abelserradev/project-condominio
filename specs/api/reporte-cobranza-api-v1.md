@@ -1,123 +1,148 @@
-# API Spec — Reporte de Cobranza v1
+# API Spec — Reporte de Cobranza v1.1 (async Excel + read model)
 
-Implementa: PRD [`../prd/reporte-cobranza.md`](../prd/reporte-cobranza.md) (REQ-001 a REQ-009).
+Implementa: PRD [`../prd/reporte-cobranza.md`](../prd/reporte-cobranza.md) (REQ-001 a REQ-017).
 
 ---
 
-## Endpoint
+## Endpoints
 
-```
-GET /administracion/reporte/cobranza?format=json|xlsx&filtro=todos|al_dia|moroso
-```
+### `GET /administracion/reporte/cobranza?format=json|xlsx&filtro=todos|al_dia|moroso`
 
-**Importante (routing NestJS):** declarar esta ruta estática **antes** de
-`GET /administracion/:id` en `administracion.controller.ts`, o `:id` capturará
-`"reporte"`.
+**Routing NestJS:** declarar **antes** de `GET /administracion/:id`.
 
-### Headers
+#### Headers
 
 | Header | Requerido | Nota |
 |--------|-----------|------|
-| `Authorization: Bearer <jwt>` | Sí | Mismo token admin de `GET /administracion` |
-| `x-building-slug` | Sí (modo plataforma) | Resuelto por `BuildingContextGuard` |
+| `Authorization: Bearer <jwt>` | Sí | Token admin |
+| `x-building-slug` | Sí (modo plataforma) | `BuildingContextGuard` |
 
-### Guards
+#### Guards
 
-`JwtAuthGuard` → `BuildingContextGuard` → `SubscriptionGuard` (REQ-007).
-Sin token: 401. Suscripción vencida/suspendida: 403 con `motivoBloqueo`.
+`JwtAuthGuard` → `BuildingContextGuard` → `SubscriptionGuard`.
 
-### Query params
+#### Query params
 
-| Param | Valores | Default | Validación |
-|-------|---------|---------|------------|
-| `format` | `json`, `xlsx` | `xlsx` | 400 si otro valor |
-| `filtro` | `todos`, `al_dia`, `moroso` | `todos` | 400 si otro valor |
+| Param | Valores | Default |
+|-------|---------|---------|
+| `format` | `json`, `xlsx` | `json` recomendado |
+| `filtro` | `todos`, `al_dia`, `moroso` | `todos` |
 
 ---
 
-## Response `format=json` (REQ-008)
+### Response `format=json` (REQ-008, REQ-014)
 
 ```json
 {
   "generadoEn": "2026-08-31T18:00:00.000Z",
+  "actualizadoEn": "2026-08-31T18:00:00.000Z",
+  "fuente": "snapshot",
   "resumen": {
     "totalApartamentos": 240,
     "alDia": 210,
     "morosos": 28,
     "enRevision": 5
   },
-  "filas": [
-    {
-      "piso": 1,
-      "apartamento": 3,
-      "idUnico": "P1-A3",
-      "categoria": "moroso",
-      "saldoBrutoUsd": 150.0,
-      "abonoUsd": 20.0,
-      "saldoNetoUsd": 130.0,
-      "mesesPendientes": [7, 8],
-      "tiposDeuda": ["condominio"],
-      "tienePagoEnRevision": true,
-      "cantidadPagosEnRevision": 1,
-      "montoEnRevisionUsd": 75.0,
-      "propietario": "María Pérez",
-      "emailPropietario": "maria@example.com"
-    }
-  ]
+  "filas": [ { "...": "..." } ]
 }
 ```
 
-Notas de contrato:
+| Campo `fuente` | Significado |
+|----------------|-------------|
+| `snapshot` | Leído de `cobranza_snapshot` |
+| `cache` | Leído de Redis |
+| `rebuild` | Cold start; recalculado y persistido en la request |
 
-- `resumen.enRevision` cuenta apartamentos distintos con pago pendiente y **puede
-  solaparse** con `morosos` (un moroso con pago reportado cuenta en ambos).
-- `alDia + morosos === totalApartamentos` siempre (categorías excluyentes).
-- Montos: `number` con 2 decimales. No se introduce Decimal en esta feature
-  (deuda técnica del dominio, documentada en PRD §6).
-- `propietario` / `emailPropietario` pueden ser `null` si el apartamento no tiene
-  owner activo registrado.
-- `mesesPendientes` y `tiposDeuda` derivan solo de recibos con saldo
-  (`montoPagado < montoUsd`).
+Notas: `resumen.enRevision` puede solaparse con `morosos`. `alDia + morosos === totalApartamentos`.
 
-## Response `format=xlsx` (REQ-001)
+---
 
-| Header | Valor |
-|--------|-------|
+### `GET ?format=xlsx` — DEPRECATED (REQ-001)
+
+Responde **`410 Gone`** con:
+
+```json
+{ "message": "Use POST /administracion/reporte/cobranza/jobs" }
+```
+
+Excepción dev: si `COBRANZA_SYNC_XLSX=true`, mantiene respuesta síncrona v1.
+
+---
+
+### `POST /administracion/reporte/cobranza/jobs` (REQ-012)
+
+Encola generación Excel.
+
+**Body opcional:** `{ "filtro": "todos" | "al_dia" | "moroso" }`
+
+**Response `202`:**
+
+```json
+{
+  "jobId": "507f1f77bcf86cd799439011",
+  "estado": "pending",
+  "creadoEn": "2026-08-31T18:00:00.000Z"
+}
+```
+
+---
+
+### `GET /administracion/reporte/cobranza/jobs/:jobId` (REQ-013)
+
+Estados: `pending`, `ready` (con `downloadUrl`), `failed` (con `error`).
+Validar `jobId` pertenece al `buildingId` del JWT.
+
+---
+
+### `GET /administracion/reporte/cobranza/jobs/:jobId/download`
+
+Solo si `estado === ready`. Headers Excel iguales a v1.
+
+---
+
+## Colección `cobranza_report_jobs`
+
+| Campo | Tipo | Notas |
+|-------|------|-------|
+| `_id` | ObjectId | = `jobId` |
+| `buildingId` | ObjectId | tenant |
+| `estado` | enum | `pending`, `ready`, `failed` |
+| `filtro` | string | `todos`, `al_dia`, `moroso` |
+| `fileId` | ObjectId? | GridFS al completar |
+| `error` | string? | si failed |
+| `listoEn` | Date? | TTL 24 h para `ready`/`failed` |
+
+Worker BullMQ cola `cobranza-excel`; concurrencia vía `COBRANZA_EXCEL_WORKER_CONCURRENCY`.
+
+---
+
+## Workbook Excel (sin cambio semántico v1)
+
+**Hoja `Resumen`:** fecha, totales.
+
+**Hoja `Detalle`:** piso, apartamento, categoría, saldos, meses, tipos deuda,
+flags revisión, propietario, email.
+
+| Header xlsx | Valor |
+|-------------|-------|
 | `Content-Type` | `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` |
-| `Content-Disposition` | `attachment; filename="reporte-cobranza-{fechaISO}.xlsx"` |
+| `Content-Disposition` | `attachment; filename="reporte-cobranza-{fecha}.xlsx"` |
 
-Workbook con dos hojas:
-
-**Hoja `Resumen`**: fecha de generación, total de apartamentos, al día, morosos,
-con pago en revisión.
-
-**Hoja `Detalle`** (una fila por apartamento, ordenada por piso y apartamento):
-
-| Columna | Tipo |
-|---------|------|
-| Piso | número |
-| Apartamento | número |
-| Categoría | `al_dia` / `moroso` |
-| Saldo bruto USD | número, 2 decimales |
-| Abono USD | número, 2 decimales |
-| Saldo neto USD | número, 2 decimales |
-| Meses pendientes | texto (`"7, 8"`) |
-| Tipos de deuda | texto, valores únicos |
-| Pago en revisión | `SI` / `NO` |
-| Cantidad pagos en revisión | número |
-| Monto en revisión USD | número, 2 decimales |
-| Propietario | texto o vacío |
-| Email propietario | texto o vacío |
+---
 
 ## Errores
 
 | Código | Cuándo |
 |--------|--------|
 | 400 | `format` o `filtro` inválido |
-| 401 | Sin JWT o JWT inválido |
-| 403 | Suscripción vencida/suspendida |
+| 401 | Sin JWT |
+| 403 | Suscripción bloqueada |
+| 410 | `GET ?format=xlsx` deprecated |
+
+---
 
 ## Tests asociados
 
-- `cobranza-classification.util.spec.ts`: REQ-002, REQ-003, REQ-004, REQ-005 (unit puros).
-- Smoke manual del endpoint: 200 + headers Excel; 401 sin token.
+- `cobranza-classification.util.spec.ts` — REQ-002…005
+- `cobranza-snapshot.service.spec.ts` — snapshot, cache, lock
+- `cobranza-excel-job.service.spec.ts` — lifecycle job Excel

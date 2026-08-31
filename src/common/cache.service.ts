@@ -16,6 +16,7 @@ const TTL_AVISOS_READ_MS = 365 * 24 * 60 * 60 * 1000; // 1 año para "última le
 export class CacheService implements OnModuleInit, OnModuleDestroy {
   private redis: Redis | null = null;
   private readonly memoryCache = new Map<string, CacheEntry<unknown>>();
+  private readonly memoryLocks = new Map<string, number>();
   private readonly defaultTtl = 5 * 60 * 1000;
 
   constructor() {
@@ -89,6 +90,44 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       data,
       expiresAt: Date.now() + ttl,
     });
+  }
+
+  /**
+   * Lock distribuido (SET NX EX). Sin Redis usa Map en memoria con TTL.
+   * Evita rebuilds duplicados del snapshot entre procesos/workers.
+   */
+  async acquireLock(key: string, ttlSeconds: number): Promise<boolean> {
+    if (this.redis) {
+      try {
+        const result = await this.redis.set(
+          this.key(key),
+          '1',
+          'EX',
+          ttlSeconds,
+          'NX',
+        );
+        return result === 'OK';
+      } catch {
+        return false;
+      }
+    }
+    const ahora = Date.now();
+    const expira = this.memoryLocks.get(key);
+    if (expira !== undefined && expira > ahora) return false;
+    this.memoryLocks.set(key, ahora + ttlSeconds * 1000);
+    return true;
+  }
+
+  async releaseLock(key: string): Promise<void> {
+    if (this.redis) {
+      try {
+        await this.redis.del(this.key(key));
+      } catch {
+        //
+      }
+      return;
+    }
+    this.memoryLocks.delete(key);
   }
 
   async delete(key: string): Promise<void> {
