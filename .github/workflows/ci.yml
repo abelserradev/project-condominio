@@ -73,6 +73,7 @@ jobs:
       MONGODB_URI: mongodb://localhost:27017/condominio_test
       JWT_SECRET: ci-test-secret-no-usar-en-prod
       NODE_ENV: test
+      DISABLE_BULLMQ_WORKERS: 'true'
     steps:
       - uses: actions/checkout@v4
 

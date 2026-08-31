@@ -34,6 +34,8 @@ describe('CobranzaSnapshotService', () => {
     get: jest.fn().mockResolvedValue(null),
     set: jest.fn().mockResolvedValue(undefined),
     delete: jest.fn().mockResolvedValue(undefined),
+    acquireLock: jest.fn().mockResolvedValue(true),
+    releaseLock: jest.fn().mockResolvedValue(undefined),
   };
 
   beforeEach(async () => {
@@ -101,6 +103,10 @@ describe('CobranzaSnapshotService', () => {
   it('rebuild persiste snapshot e invalida cache del edificio', async () => {
     await service.rebuild(buildingId);
 
+    expect(mockCache.acquireLock).toHaveBeenCalledWith(
+      `snapshot:lock:${buildingId.toString()}`,
+      120,
+    );
     expect(mockSnapshotModel.findOneAndUpdate).toHaveBeenCalledWith(
       { buildingId },
       expect.objectContaining({ $inc: { version: 1 } }),
@@ -109,5 +115,15 @@ describe('CobranzaSnapshotService', () => {
     expect(mockCache.delete).toHaveBeenCalledWith(
       `reporte:cobranza:${buildingId.toString()}`,
     );
+    expect(mockCache.releaseLock).toHaveBeenCalled();
+  });
+
+  it('rebuild omitido si el lock Redis ya está tomado', async () => {
+    mockCache.acquireLock.mockResolvedValue(false);
+
+    await service.rebuild(buildingId);
+
+    expect(mockReportService.build).not.toHaveBeenCalled();
+    expect(mockCache.releaseLock).not.toHaveBeenCalled();
   });
 });

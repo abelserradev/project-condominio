@@ -5,11 +5,18 @@ import {
   type ExcelJobPayload,
 } from './cobranza-excel-job.service';
 
+const workerConcurrency = Number.parseInt(
+  process.env.COBRANZA_EXCEL_WORKER_CONCURRENCY ?? '2',
+  10,
+);
+
 /**
  * Consumer BullMQ para la cola de Excel de cobranza.
- * El worker es un adapter: delega la lógica de negocio en CobranzaExcelJobService.
+ * Concurrencia configurable vía COBRANZA_EXCEL_WORKER_CONCURRENCY (default 2).
  */
-@Processor('cobranza-excel', { concurrency: 2 })
+@Processor('cobranza-excel', {
+  concurrency: Number.isFinite(workerConcurrency) ? workerConcurrency : 2,
+})
 export class CobranzaExcelJobProcessor extends WorkerHost {
   constructor(
     private readonly cobranzaExcelJobService: CobranzaExcelJobService,

@@ -40,7 +40,8 @@ export class CobranzaReportJob {
 export const CobranzaReportJobSchema =
   SchemaFactory.createForClass(CobranzaReportJob);
 
-// TTL: borrar jobs listos o fallidos después de 24 h; los pending no se borran.
+// TTL: borrar jobs listos o fallidos 24 h después de listoEn (REQ-013 cleanup).
+// Los pending no tienen listoEn y no entran en el índice parcial.
 CobranzaReportJobSchema.index(
   { listoEn: 1 },
   {
