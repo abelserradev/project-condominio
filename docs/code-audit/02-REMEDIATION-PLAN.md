@@ -10,9 +10,9 @@
 
 ## Phase 1 — P1
 
-### R-01 · Tests unitarios auth (login, JWT, guards) — en progreso
+### R-01 · Tests unitarios auth (login, JWT, guards) ✅
 
-- **Fix:** `auth.service.spec.ts` ✅ (login plataforma/edificio, admin, propietario); pendiente `jwt-auth.guard.spec.ts`.
+- **Fix:** `auth.service.spec.ts` + `jwt-auth.guard.spec.ts` (401, user válido, canActivate async).
 - **Effort:** M · **Risk:** Bajo
 - **Verification:** `pnpm test:cov` → `auth.service.ts` ≥ 70 % lines
 
