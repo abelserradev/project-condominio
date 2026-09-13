@@ -15,8 +15,8 @@ import {
   validateFileSize,
 } from '../common/utils/file-validation.util';
 import { CacheService } from '../common/cache.service';
-import { BuildingContextGuard } from '../common/guards/building-context.guard';
-import { SubscriptionGuard } from '../common/guards/subscription.guard';
+import { BuildingContextGuard } from '../buildings/building-context.guard';
+import { SubscriptionGuard } from '../buildings/subscription.guard';
 import * as crypto from 'node:crypto';
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024;

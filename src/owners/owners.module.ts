@@ -3,10 +3,9 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { OwnersController } from './owners.controller';
 import { OwnersService } from './owners.service';
 import { Owner, OwnerSchema } from './schemas/owner.schema';
-import { AuthModule } from '../auth/auth.module';
+import { AuthCoreModule } from '../auth/auth-core.module';
 import { BuildingsModule } from '../buildings/buildings.module';
-import { BuildingContextGuard } from '../common/guards/building-context.guard';
-import { SubscriptionGuard } from '../common/guards/subscription.guard';
+import { BuildingTenantGuardsModule } from '../buildings/building-tenant-guards.module';
 import {
   Apartment,
   apartmentschema,
@@ -18,11 +17,12 @@ import {
       { name: Owner.name, schema: OwnerSchema },
       { name: Apartment.name, schema: apartmentschema },
     ]),
-    forwardRef(() => AuthModule),
+    AuthCoreModule,
     forwardRef(() => BuildingsModule),
+    BuildingTenantGuardsModule,
   ],
   controllers: [OwnersController],
-  providers: [OwnersService, BuildingContextGuard, SubscriptionGuard],
+  providers: [OwnersService],
   exports: [OwnersService],
 })
 export class OwnersModule {}

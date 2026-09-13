@@ -1,10 +1,21 @@
-import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  UnauthorizedException,
+  Logger,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Types } from 'mongoose';
 import { UserService } from '../user/user.service';
-import { OwnersService } from '../owners/owners.service';
-import { BuildingsService } from '../buildings/buildings.service';
-import { BuildingDocument } from '../buildings/schemas/building.schema';
+import {
+  OWNERS_LOGIN,
+  type OwnersLoginPort,
+} from '../owners-login/owners-login.port';
+import {
+  BUILDING_LOOKUP,
+  type BuildingLoginSnapshot,
+  type BuildingLookupPort,
+} from '../building-lookup/building-lookup.port';
 import { UserDocument } from '../user/schemas/user.schema';
 
 export type LoginResult = {
@@ -23,8 +34,10 @@ export class AuthService {
 
   constructor(
     private readonly userService: UserService,
-    private readonly ownersService: OwnersService,
-    private readonly buildingsService: BuildingsService,
+    @Inject(OWNERS_LOGIN)
+    private readonly ownersLogin: OwnersLoginPort,
+    @Inject(BUILDING_LOOKUP)
+    private readonly buildingLookup: BuildingLookupPort,
     private readonly jwtService: JwtService,
   ) {}
 
@@ -73,18 +86,18 @@ export class AuthService {
 
   private async resolveBuilding(
     buildingSlug?: string,
-  ): Promise<BuildingDocument | null> {
+  ): Promise<BuildingLoginSnapshot | null> {
     const slug = buildingSlug?.trim();
     if (!slug) {
       return null;
     }
-    return this.buildingsService.findBySlug(slug);
+    return this.buildingLookup.findBySlug(slug);
   }
 
   private async loginAsAdmin(
     user: UserDocument,
     contraseña: string,
-    building: BuildingDocument | null,
+    building: BuildingLoginSnapshot | null,
     buildingId: Types.ObjectId | undefined,
   ): Promise<LoginResult> {
     const valid = await this.userService.validatePassword(
@@ -125,10 +138,10 @@ export class AuthService {
   private async loginAsOwner(
     usuario: string,
     contraseña: string,
-    building: BuildingDocument,
+    building: BuildingLoginSnapshot,
     buildingId: Types.ObjectId,
   ): Promise<LoginResult | null> {
-    const owner = await this.ownersService.findByEmail(usuario, buildingId);
+    const owner = await this.ownersLogin.findActiveByEmail(usuario, buildingId);
     if (!owner) {
       return null;
     }

@@ -5,8 +5,8 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
-import { BuildingsService } from '../../buildings/buildings.service';
-import { RequestWithMutableBuilding } from '../types/http-request.types';
+import { BuildingsService } from './buildings.service';
+import { RequestWithMutableBuilding } from '../common/types/http-request.types';
 
 @Injectable()
 export class BuildingContextGuard implements CanActivate {
@@ -29,7 +29,6 @@ export class BuildingContextGuard implements CanActivate {
       throw new NotFoundException('Edificio no encontrado');
     }
 
-    // Suspendido puede tener activo=false; el bloqueo lo aplica SubscriptionGuard
     req.building = building;
     return true;
   }

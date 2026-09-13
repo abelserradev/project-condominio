@@ -1,7 +1,7 @@
 import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common';
 import { ApartmentsService } from './apartments.service';
-import { BuildingContextGuard } from '../common/guards/building-context.guard';
-import { SubscriptionGuard } from '../common/guards/subscription.guard';
+import { BuildingContextGuard } from '../buildings/building-context.guard';
+import { SubscriptionGuard } from '../buildings/subscription.guard';
 import { BuildingDocument } from '../buildings/schemas/building.schema';
 
 type RequestWithBuilding = { building: BuildingDocument };
