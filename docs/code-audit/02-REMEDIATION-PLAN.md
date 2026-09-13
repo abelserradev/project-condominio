@@ -10,17 +10,17 @@
 
 ## Phase 1 — P1
 
-### R-01 · Tests unitarios auth (login, JWT, guards)
+### R-01 · Tests unitarios auth (login, JWT, guards) ✅
 
-- **Fix:** `auth.service.spec.ts`, `jwt-auth.guard.spec.ts` con mocks de UserService; casos fallo credenciales y token expirado.
+- **Fix:** `auth.service.spec.ts` + `jwt-auth.guard.spec.ts` (401, user válido, canActivate async).
 - **Effort:** M · **Risk:** Bajo
 - **Verification:** `pnpm test:cov` → `auth.service.ts` ≥ 70 % lines
 
-### R-02 · Tests payments (create, aceptar, rechazar)
+### R-02 · Tests payments (create, aceptar, rechazar) ✅
 
-- **Fix:** Extender `payments.service.spec.ts` cubriendo ramas en `payments.service.ts:75-220`.
+- **Fix:** `payments.service.spec.ts` — create, aceptar, rechazar, NotFound en updateEstado.
 - **Effort:** M · **Risk:** Medio (fixtures Mongo)
-- **Verification:** `pnpm test:cov` → `payments.service.ts` ≥ 85 % lines
+- **Verification:** `pnpm test` payments suite verde; ampliar cobertura ≥85 % en follow-up CI
 
 ## Phase 2 — P2
 
