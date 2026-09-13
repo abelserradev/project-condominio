@@ -2,24 +2,21 @@ import { Types } from 'mongoose';
 import { prepararBulkAbonosRecibos } from './recibos-abono-bulk.util';
 import { ReciboDocument } from '../schemas/recibo.schema';
 
+function reciboStub(partial: Partial<ReciboDocument>): ReciboDocument {
+  return {
+    _id: new Types.ObjectId(),
+    montoUsd: 60,
+    montoPagado: 0,
+    abonos: [],
+    ...partial,
+  } as ReciboDocument;
+}
+
 describe('prepararBulkAbonosRecibos', () => {
   it('reparte monto entre dos recibos en orden', () => {
     const id1 = new Types.ObjectId();
     const id2 = new Types.ObjectId();
-    const recibos = [
-      {
-        _id: id1,
-        montoUsd: 60,
-        montoPagado: 0,
-        abonos: [],
-      },
-      {
-        _id: id2,
-        montoUsd: 60,
-        montoPagado: 0,
-        abonos: [],
-      },
-    ] as ReciboDocument[];
+    const recibos = [reciboStub({ _id: id1 }), reciboStub({ _id: id2 })];
 
     const { bulkOps, ids, recibosCompletos } = prepararBulkAbonosRecibos(
       recibos,
