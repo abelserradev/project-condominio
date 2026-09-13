@@ -6,7 +6,13 @@ import { CacheService } from '../common/cache.service';
 import { AbonoApartamentoService } from './abono-apartamento.service';
 import { CobranzaSnapshotService } from './cobranza-snapshot.service';
 import { UpdateManyByMesesInput } from './recibos.types';
-import { prepararBulkAbonosRecibos } from './utils/recibos-abono-bulk.util';
+import { invalidarCacheListadosRecibos } from './recibos-cache.helper';
+import { prepararPersistenciaBulkRecibos } from './utils/recibos-bulk-persist.util';
+import { calcularAplicacionPagoConAbono } from './utils/recibos-pago-calculo.util';
+import {
+  filtrarRecibosConSaldo,
+  sumarDeudaPendienteRecibos,
+} from './utils/recibos-pendientes.util';
 
 @Injectable()
 export class RecibosPagoService {
@@ -29,46 +35,18 @@ export class RecibosPagoService {
     fechaPago: Date;
     numeroComprobante?: string;
   }): Promise<{ count: number; ids: string[] }> {
-    let recibosPendientes: ReciboDocument[];
-    if (params.recibosIds && params.recibosIds.length > 0) {
-      const objectIds = params.recibosIds.map((id) => new Types.ObjectId(id));
-      const q: Record<string, unknown> = { _id: { $in: objectIds } };
-      if (params.buildingId) q.buildingId = params.buildingId;
-      const list = await this.reciboModel.find(q).lean().exec();
-      recibosPendientes = list.filter((r) => {
-        const montoPagado = r.montoPagado || 0;
-        return montoPagado < r.montoUsd;
-      });
-    } else if (params.meses && params.meses.length > 0) {
-      const q: Record<string, unknown> = {
-        piso: params.piso,
-        apartamento: params.apartamento,
-        meses: { $in: params.meses },
-      };
-      if (params.buildingId) q.buildingId = params.buildingId;
-      const list = await this.reciboModel.find(q).lean().exec();
-      recibosPendientes = list.filter((r) => {
-        const montoPagado = r.montoPagado || 0;
-        return montoPagado < r.montoUsd;
-      });
-    } else {
-      return { count: 0, ids: [] };
-    }
+    const recibosPendientes =
+      await this.cargarRecibosPendientesParaPago(params);
     if (recibosPendientes.length === 0) return { count: 0, ids: [] };
 
-    const totalDebt = recibosPendientes.reduce((sum, r) => {
-      const montoPagado = r.montoPagado || 0;
-      return sum + (r.montoUsd - montoPagado);
-    }, 0);
+    const totalDebt = sumarDeudaPendienteRecibos(recibosPendientes);
     const abono = await this.abonoApartamentoService.getMonto(
       params.piso,
       params.apartamento,
       params.buildingId,
     );
-    const amountFromPayment = Math.min(params.montoPago, totalDebt);
-    const excess = Math.max(0, params.montoPago - totalDebt);
-    const amountFromAbono = Math.min(abono, totalDebt - amountFromPayment);
-    const totalToApply = amountFromPayment + amountFromAbono;
+    const { excess, amountFromAbono, totalToApply } =
+      calcularAplicacionPagoConAbono(params.montoPago, totalDebt, abono);
 
     if (excess > 0) {
       await this.abonoApartamentoService.agregar(
@@ -124,7 +102,7 @@ export class RecibosPagoService {
     if (!doc) {
       throw new NotFoundException('Recibo no encontrado');
     }
-    await this.invalidarCacheRecibos();
+    await invalidarCacheListadosRecibos(this.cacheService);
     return doc;
   }
 
@@ -152,16 +130,11 @@ export class RecibosPagoService {
       numeroComprobante,
     };
     const nuevoMontoPagado = montoPagadoActual + montoAAplicar;
-    const abonosActualizados = [...(recibo.abonos || []), nuevoAbono];
     const updateData: Partial<ReciboDocument> = {
       montoPagado: nuevoMontoPagado,
-      abonos: abonosActualizados,
+      abonos: [...(recibo.abonos || []), nuevoAbono],
+      estado: nuevoMontoPagado >= recibo.montoUsd ? 'pagado' : 'pendiente',
     };
-    if (nuevoMontoPagado >= recibo.montoUsd) {
-      updateData.estado = 'pagado';
-    } else {
-      updateData.estado = 'pendiente';
-    }
     const doc = await this.reciboModel
       .findByIdAndUpdate(reciboId, updateData, { new: true })
       .lean()
@@ -169,7 +142,7 @@ export class RecibosPagoService {
     if (!doc) {
       throw new NotFoundException('Recibo no encontrado');
     }
-    await this.invalidarCacheRecibos();
+    await invalidarCacheListadosRecibos(this.cacheService);
     return doc;
   }
 
@@ -183,30 +156,13 @@ export class RecibosPagoService {
     };
     if (input.buildingId) q.buildingId = input.buildingId;
     const recibos = await this.reciboModel.find(q).lean().exec();
-    if (recibos.length === 0) {
-      return { count: 0, ids: [], abonosRegistrados: 0 };
-    }
-    const recibosPendientes = recibos.filter((recibo) => {
-      const montoPagado = recibo.montoPagado || 0;
-      return montoPagado < recibo.montoUsd;
-    });
-    if (recibosPendientes.length === 0) {
-      return { count: 0, ids: [], abonosRegistrados: 0 };
-    }
-    const { bulkOps, ids, abonosRegistrados, recibosCompletos } =
-      prepararBulkAbonosRecibos(
-        recibosPendientes,
-        input.montoPago,
-        input.paymentId,
-        input.fechaPago,
-        input.numeroComprobante,
-      );
-    if (bulkOps.length > 0) {
-      await this.reciboModel.bulkWrite(bulkOps);
-    }
-    const count = recibosCompletos.size;
-    await this.invalidarCacheRecibos();
-    return { count, ids, abonosRegistrados };
+    return this.ejecutarBulkDesdeListado(
+      recibos,
+      input.montoPago,
+      input.paymentId,
+      input.fechaPago,
+      input.numeroComprobante,
+    );
   }
 
   async updateManyByIds(
@@ -224,33 +180,68 @@ export class RecibosPagoService {
     const q: Record<string, unknown> = { _id: { $in: objectIds } };
     if (buildingId) q.buildingId = buildingId;
     const recibos = await this.reciboModel.find(q).lean().exec();
-    if (recibos.length === 0) {
-      return { count: 0, ids: [] };
-    }
-    const recibosPendientes = recibos.filter((recibo) => {
-      const montoPagado = recibo.montoPagado || 0;
-      return montoPagado < recibo.montoUsd;
-    });
-    if (recibosPendientes.length === 0) {
-      return { count: 0, ids: [] };
-    }
-    const { bulkOps, ids, recibosCompletos } = prepararBulkAbonosRecibos(
-      recibosPendientes,
+    const { count, ids } = await this.ejecutarBulkDesdeListado(
+      recibos,
       montoPago,
       paymentId,
       fechaPago,
       numeroComprobante,
     );
-    if (bulkOps.length > 0) {
-      await this.reciboModel.bulkWrite(bulkOps);
-    }
-    const count = recibosCompletos.size;
-    await this.invalidarCacheRecibos();
     return { count, ids };
   }
 
-  private async invalidarCacheRecibos(): Promise<void> {
-    await this.cacheService.deletePattern(`recibos:.*`);
-    await this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
+  private async cargarRecibosPendientesParaPago(params: {
+    buildingId?: Types.ObjectId;
+    piso: number;
+    apartamento: number;
+    recibosIds?: string[];
+    meses?: number[];
+  }): Promise<ReciboDocument[]> {
+    if (params.recibosIds && params.recibosIds.length > 0) {
+      const objectIds = params.recibosIds.map((id) => new Types.ObjectId(id));
+      const q: Record<string, unknown> = { _id: { $in: objectIds } };
+      if (params.buildingId) q.buildingId = params.buildingId;
+      const list = await this.reciboModel.find(q).lean().exec();
+      return filtrarRecibosConSaldo(list);
+    }
+    if (params.meses && params.meses.length > 0) {
+      const q: Record<string, unknown> = {
+        piso: params.piso,
+        apartamento: params.apartamento,
+        meses: { $in: params.meses },
+      };
+      if (params.buildingId) q.buildingId = params.buildingId;
+      const list = await this.reciboModel.find(q).lean().exec();
+      return filtrarRecibosConSaldo(list);
+    }
+    return [];
+  }
+
+  private async ejecutarBulkDesdeListado(
+    recibos: ReciboDocument[],
+    montoPago: number,
+    paymentId: string,
+    fechaPago: Date,
+    numeroComprobante?: string,
+  ): Promise<{ count: number; ids: string[]; abonosRegistrados: number }> {
+    const prep = prepararPersistenciaBulkRecibos(
+      recibos,
+      montoPago,
+      paymentId,
+      fechaPago,
+      numeroComprobante,
+    );
+    if (prep.vacio) {
+      return { count: 0, ids: [], abonosRegistrados: 0 };
+    }
+    if (prep.bulkOps.length > 0) {
+      await this.reciboModel.bulkWrite(prep.bulkOps);
+    }
+    await invalidarCacheListadosRecibos(this.cacheService);
+    return {
+      count: prep.count,
+      ids: prep.ids,
+      abonosRegistrados: prep.abonosRegistrados,
+    };
   }
 }

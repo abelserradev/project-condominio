@@ -7,6 +7,7 @@ import { CacheService } from '../common/cache.service';
 import { CobranzaSnapshotService } from './cobranza-snapshot.service';
 import { CreateReciboInput } from './recibos.types';
 import { parsearFechaReciboUtc } from './recibos-fecha.util';
+import { invalidarCacheListadosRecibos } from './recibos-cache.helper';
 
 @Injectable()
 export class RecibosService {
@@ -44,7 +45,7 @@ export class RecibosService {
       abonos: [],
     });
     const result = doc.toObject();
-    await this.invalidarCacheRecibos();
+    await invalidarCacheListadosRecibos(this.cacheService);
     if (input.buildingId) {
       this.cobranzaSnapshotService.programarRebuild(input.buildingId);
     }
@@ -143,10 +144,5 @@ export class RecibosService {
     const doc = await this.reciboModel.findOne(q).lean().exec();
     if (!doc) return null;
     return doc;
-  }
-
-  async invalidarCacheRecibos(): Promise<void> {
-    await this.cacheService.deletePattern(`recibos:.*`);
-    await this.cacheService.deletePattern(`recibos_pendientes_saldo:.*`);
   }
 }

@@ -55,7 +55,7 @@
 - `RecibosService` (CRUD/consultas), `RecibosPagoService` (aplicación de pagos), util bulk en `utils/recibos-abono-bulk.util.ts`.
 - `AdministracionService` queda como fachada para controller/payments.
 
-**Metric target:** ningún servicio >250 LOC; fan-out administracion ≤7.
+**Metric target:** ningún servicio >250 LOC (`RecibosPagoService` ~249); fan-out administracion ≤7.
 
 ## Reconciliation with code-audit
 
