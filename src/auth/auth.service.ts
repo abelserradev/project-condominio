@@ -17,6 +17,7 @@ import {
   type BuildingLookupPort,
 } from '../building-lookup/building-lookup.port';
 import { UserDocument } from '../user/schemas/user.schema';
+import * as bcrypt from 'bcrypt';
 
 export type LoginResult = {
   access_token: string;
@@ -145,7 +146,6 @@ export class AuthService {
     if (!owner) {
       return null;
     }
-    const bcrypt = await import('bcrypt');
     const valid = await bcrypt.compare(contraseña, owner.passwordHash);
     if (!valid) {
       this.logger.warn(`Login fallido (propietario) para: ${usuario}`);
