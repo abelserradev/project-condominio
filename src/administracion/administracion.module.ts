@@ -4,6 +4,8 @@ import { BullModule } from '@nestjs/bullmq';
 import { URL } from 'node:url';
 import { AdministracionController } from './administracion.controller';
 import { AdministracionService } from './administracion.service';
+import { RecibosService } from './recibos.service';
+import { RecibosPagoService } from './recibos-pago.service';
 import { AbonoApartamentoService } from './abono-apartamento.service';
 import { CobranzaReportService } from './cobranza-report.service';
 import { CobranzaSnapshotService } from './cobranza-snapshot.service';
@@ -74,6 +76,8 @@ function redisConnection() {
   ],
   controllers: [AdministracionController],
   providers: [
+    RecibosService,
+    RecibosPagoService,
     AdministracionService,
     AbonoApartamentoService,
     CobranzaReportService,

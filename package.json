@@ -18,7 +18,8 @@
     "prepare": "husky || true",
     "test": "jest --passWithNoTests --forceExit",
     "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
+    "test:cov": "jest --coverage --forceExit",
+    "test:cov:gate": "jest --coverage --forceExit --coverageReporters=text-summary",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json --forceExit",
     "arch:depcruise": "depcruise src --config .dependency-cruiser.cjs",
@@ -114,9 +115,19 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
-      "**/*.(t|j)s"
+      "src/**/*.ts",
+      "!src/**/*.module.ts",
+      "!src/main.ts"
     ],
     "coverageDirectory": "../coverage",
+    "coverageThreshold": {
+      "./src/auth/auth.service.ts": {
+        "lines": 90
+      },
+      "./src/payments/payments.service.ts": {
+        "lines": 75
+      }
+    },
     "testEnvironment": "node"
   }
 }

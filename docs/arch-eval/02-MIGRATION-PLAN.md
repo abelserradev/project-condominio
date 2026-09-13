@@ -50,11 +50,12 @@
 
 **Done:** SCC administracion/utils eliminado; tests cobranza existentes verdes.
 
-## Phase 4: Cohesión administracion (ADR-002 ext.)
+## Phase 4: Cohesión administracion (ADR-002 ext.) — en progreso (2026-09-13)
 
-- Partir `administracion.service.ts` solo tras Phase 2–3 y cobertura ≥40 % en administracion/payments.
+- `RecibosService` (CRUD/consultas), `RecibosPagoService` (aplicación de pagos), util bulk en `utils/recibos-abono-bulk.util.ts`.
+- `AdministracionService` queda como fachada para controller/payments.
 
-**Metric target:** ningún servicio >250 LOC; fan-out administracion ≤7.
+**Metric target:** ningún servicio >250 LOC (`RecibosPagoService` ~249); fan-out administracion ≤7.
 
 ## Reconciliation with code-audit
 
