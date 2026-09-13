@@ -13,8 +13,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { BuildingContextGuard } from '../common/guards/building-context.guard';
-import { SubscriptionGuard } from '../common/guards/subscription.guard';
+import { BuildingContextGuard } from '../buildings/building-context.guard';
+import { SubscriptionGuard } from '../buildings/subscription.guard';
 import { BuildingDocument } from '../buildings/schemas/building.schema';
 import { OwnersService } from './owners.service';
 import { CreateOwnerDto } from './dto/create-owner.dto';

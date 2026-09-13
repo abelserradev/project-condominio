@@ -17,8 +17,8 @@ import {
 import * as express from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { BuildingContextGuard } from '../common/guards/building-context.guard';
-import { SubscriptionGuard } from '../common/guards/subscription.guard';
+import { BuildingContextGuard } from '../buildings/building-context.guard';
+import { SubscriptionGuard } from '../buildings/subscription.guard';
 import { AdministracionService } from './administracion.service';
 import { AbonoApartamentoService } from './abono-apartamento.service';
 import {

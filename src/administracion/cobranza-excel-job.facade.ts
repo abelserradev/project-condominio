@@ -9,7 +9,7 @@ import {
   CobranzaReportJobDocument,
 } from './schemas/cobranza-report-job.schema';
 import { FilesService } from '../files/files.service';
-import type { FiltroCobranza } from './cobranza-report.service';
+import type { FiltroCobranza } from './utils/cobranza.types';
 
 export interface JobCreadoResponse {
   jobId: string;

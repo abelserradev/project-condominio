@@ -6,6 +6,7 @@ import { Payment, paymentschema } from './schemas/payment.schema';
 import { FilesModule } from '../files/files.module';
 import { AdministracionModule } from '../administracion/administracion.module';
 import { CommonModule } from '../common/common.module';
+import { BuildingTenantGuardsModule } from '../buildings/building-tenant-guards.module';
 import { OcrModule } from '../ocr/ocr.module';
 
 @Module({
@@ -14,6 +15,7 @@ import { OcrModule } from '../ocr/ocr.module';
     FilesModule,
     forwardRef(() => AdministracionModule),
     CommonModule,
+    BuildingTenantGuardsModule,
     OcrModule,
   ],
   controllers: [PaymentsController],

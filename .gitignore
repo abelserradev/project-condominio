@@ -41,6 +41,14 @@ Thumbs.db
 # Cursor / agentes locales
 .cursor/
 
+# Índices y artefactos de agentes (no versionar)
+.codegraph/
+.atl/
+graphify-out/
+lat.md/
+docs/code-audit/analysis/
+docs/arch-eval/analysis/
+
 # dotenv — NUNCA subir (JWT_SECRET, MONGODB_URI, credenciales, bootstrap tokens)
 .env
 .env.*

@@ -5,12 +5,14 @@ import { AvisosService } from './avisos.service';
 import { AvisosController } from './avisos.controller';
 import { AuthModule } from '../auth/auth.module';
 import { CommonModule } from '../common/common.module';
+import { BuildingTenantGuardsModule } from '../buildings/building-tenant-guards.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Aviso.name, schema: AvisoSchema }]),
     AuthModule,
     CommonModule,
+    BuildingTenantGuardsModule,
   ],
   controllers: [AvisosController],
   providers: [AvisosService],

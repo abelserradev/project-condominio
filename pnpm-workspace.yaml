@@ -19,3 +19,7 @@ allowBuilds:
   sharp: true
   tesseract.js: true
   unrs-resolver: true
+
+minimumReleaseAgeExclude:
+  - dependency-cruiser@18.3.0
+  - enhanced-resolve@5.25.1

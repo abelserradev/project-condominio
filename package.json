@@ -21,6 +21,9 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json --forceExit",
+    "arch:depcruise": "depcruise src --config .dependency-cruiser.cjs",
+    "arch:baseline": "node scripts/check-arch-baseline.mjs",
+    "arch:check": "pnpm run arch:depcruise && pnpm run arch:baseline",
     "create-superadmin": "ts-node -r tsconfig-paths/register scripts/create-superadmin.ts",
     "migrate:user-tenant-index": "node dist/scripts/migrate-user-tenant-index.js"
   },
@@ -77,6 +80,7 @@
     "@types/node": "^22.10.7",
     "@types/passport-jwt": "^4.0.1",
     "@types/supertest": "^6.0.2",
+    "dependency-cruiser": "18.3.0",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",
@@ -101,8 +105,11 @@
       "json",
       "ts"
     ],
-    "rootDir": "src",
-    "testRegex": ".*\\.spec\\.ts$",
+    "rootDir": ".",
+    "testMatch": [
+      "<rootDir>/src/**/*.spec.ts",
+      "<rootDir>/test/**/*.spec.ts"
+    ],
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },

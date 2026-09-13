@@ -32,6 +32,7 @@ import { Owner, OwnerSchema } from '../owners/schemas/owner.schema';
 import { FilesModule } from '../files/files.module';
 import { AuthModule } from '../auth/auth.module';
 import { CommonModule } from '../common/common.module';
+import { BuildingTenantGuardsModule } from '../buildings/building-tenant-guards.module';
 
 /**
  * Opciones de Redis para BullMQ. Si no hay REDIS_URL, fallback a localhost:6379
@@ -69,6 +70,7 @@ function redisConnection() {
     FilesModule,
     AuthModule,
     CommonModule,
+    BuildingTenantGuardsModule,
   ],
   controllers: [AdministracionController],
   providers: [

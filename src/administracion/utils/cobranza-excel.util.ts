@@ -1,8 +1,5 @@
 import { Workbook } from 'exceljs';
-import type {
-  FilaCobranzaDetalle,
-  ReporteCobranza,
-} from '../cobranza-report.service';
+import type { FilaCobranzaDetalle, ReporteCobranza } from './cobranza.types';
 
 // Nombres de meses para la columna "Meses pendientes" — el admin lee el
 // Excel, no quiere números crudos.

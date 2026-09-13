@@ -14,30 +14,21 @@ import { Payment, paymentdocument } from '../payments/schemas/payment.schema';
 import { Owner, OwnerDocument } from '../owners/schemas/owner.schema';
 import {
   construirFilaCobranza,
-  type FilaCobranza,
   type PagoPendienteInput,
   type ReciboCobranzaInput,
 } from './utils/cobranza-classification.util';
 import { buildCobranzaWorkbook } from './utils/cobranza-excel.util';
+import type {
+  FilaCobranzaDetalle,
+  FiltroCobranza,
+  ReporteCobranza,
+} from './utils/cobranza.types';
 
-export type FiltroCobranza = 'todos' | 'al_dia' | 'moroso';
-
-export interface FilaCobranzaDetalle extends FilaCobranza {
-  idUnico: string;
-  propietario: string | null;
-  emailPropietario: string | null;
-}
-
-export interface ReporteCobranza {
-  generadoEn: string;
-  resumen: {
-    totalApartamentos: number;
-    alDia: number;
-    morosos: number;
-    enRevision: number;
-  };
-  filas: FilaCobranzaDetalle[];
-}
+export type {
+  FilaCobranzaDetalle,
+  FiltroCobranza,
+  ReporteCobranza,
+} from './utils/cobranza.types';
 
 const claveApto = (piso: number, apartamento: number): string =>
   `${piso}-${apartamento}`;

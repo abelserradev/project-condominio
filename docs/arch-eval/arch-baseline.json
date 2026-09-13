@@ -1,0 +1,13 @@
+{
+  "version": 4,
+  "description": "Post Phase 3: TenantGuardsModule; CommonModule sin BuildingsModule",
+  "maxStronglyConnectedComponents": 0,
+  "forbiddenMutualPairs": [
+    ["src/auth", "src/buildings"],
+    ["src/auth", "src/owners"],
+    ["src/buildings", "src/common"],
+    ["src/administracion", "src/administracion/utils"]
+  ],
+  "knownCycleModules": [],
+  "notes": "Guards tenant en src/buildings/; BuildingTenantGuardsModule re-exporta BuildingsModule."
+}

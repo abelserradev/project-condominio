@@ -1,30 +1,20 @@
-import { Module, forwardRef } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
-import { PassportModule } from '@nestjs/passport';
+import { Module } from '@nestjs/common';
 import { UserModule } from '../user/user.module';
-import { OwnersModule } from '../owners/owners.module';
-import { BuildingsModule } from '../buildings/buildings.module';
+import { OwnersLoginModule } from '../owners-login/owners-login.module';
+import { BuildingLookupModule } from '../building-lookup/building-lookup.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { JwtAuthGuard } from './jwt-auth.guard';
-import { JwtStrategy } from './jwt.strategy';
-import { resolveJwtSecret } from '../common/utils/jwt-secret.util';
+import { AuthCoreModule } from './auth-core.module';
 
 @Module({
   imports: [
     UserModule,
-    forwardRef(() => OwnersModule),
-    forwardRef(() => BuildingsModule),
-    PassportModule,
-    JwtModule.registerAsync({
-      useFactory: () => ({
-        secret: resolveJwtSecret(),
-        signOptions: { expiresIn: '7d' },
-      }),
-    }),
+    OwnersLoginModule,
+    BuildingLookupModule,
+    AuthCoreModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtAuthGuard, JwtStrategy],
-  exports: [JwtAuthGuard, JwtModule],
+  providers: [AuthService],
+  exports: [AuthCoreModule, AuthService],
 })
 export class AuthModule {}

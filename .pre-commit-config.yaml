@@ -1,0 +1,61 @@
+# Propuesto por code-audit 2026-09-13 — NestJS (ajustar eslint plugins antes de --max-warnings=0 estricto)
+exclude: |
+  (?x)^(
+    node_modules/.*|
+    dist/.*|
+    coverage/.*|
+    \.git/.*|
+    \.codegraph/.*|
+    docs/code-audit/analysis/.*
+  )$
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--unsafe]
+      - id: check-json
+        exclude: tsconfig.*\.json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: detect-private-key
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.13.1-beta
+    hooks:
+      - id: hadolint-docker
+        args: [--failure-threshold=warning]
+  - repo: local
+    hooks:
+      - id: prettier
+        name: "fmt: Prettier"
+        language: system
+        entry: pnpm exec prettier --check
+        types_or: [ts, json, yaml, markdown]
+      - id: eslint
+        name: "lint: ESLint"
+        language: system
+        entry: pnpm run lint:check
+        pass_filenames: false
+      - id: tsc
+        name: "types: tsc --noEmit"
+        language: system
+        entry: pnpm run typecheck
+        pass_filenames: false
+      - id: jscpd
+        name: "dry: jscpd src/ (blocks at >3%)"
+        language: system
+        entry: pnpm exec jscpd src/ --min-tokens 70 --threshold 3
+        pass_filenames: false
+      - id: pnpm-audit
+        name: "sca: pnpm audit high+ (lockfile only)"
+        language: system
+        entry: pnpm audit --audit-level=high
+        pass_filenames: false
+        files: ^(package\.json|pnpm-lock\.yaml)$

@@ -4,11 +4,10 @@ import {
   ExecutionContext,
   ForbiddenException,
 } from '@nestjs/common';
-import { BuildingsService } from '../../buildings/buildings.service';
-import { evaluarAccesoPortal } from '../../buildings/utils/portal-access.util';
-import { RequestWithBuilding } from '../types/http-request.types';
+import { BuildingsService } from './buildings.service';
+import { evaluarAccesoPortal } from './utils/portal-access.util';
+import { RequestWithBuilding } from '../common/types/http-request.types';
 
-// Bloquea lecturas y escrituras tenant cuando la suscripción está suspendida o vencida.
 @Injectable()
 export class SubscriptionGuard implements CanActivate {
   constructor(private readonly buildingsService: BuildingsService) {}
